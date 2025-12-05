@@ -3868,7 +3868,7 @@ static void XVXX_To_PX10(AL_TBuffer const* pSrc, AL_TBuffer* pDst, uint8_t uHrzC
 /****************************************************************************/
 void XV15_To_P010(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
 {
-  XVXX_To_PX10(pSrc, pDst, 2, 2);
+  XVXX_To_PX10(pSrc, pDst, 1, 2);
 }
 
 /****************************************************************************/
