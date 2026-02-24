@@ -1,10 +1,12 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-#define AL_POISONOUS1 ((void*)0xdeadbeef)
-#define AL_POISONOUS2 ((void*)0xcafecafe)
+#include "lib_rtos/types.h"
+
+#define AL_POISONOUS1 ((void*)(intptr_t)0xdeadbeef)
+#define AL_POISONOUS2 ((void*)(intptr_t)0xcafecafe)
 
 typedef struct AL_TListHead
 {
@@ -20,19 +22,45 @@ typedef struct AL_TListHead
 #define AL_ListFirstEntry(ptr, type, member) \
   AL_ListEntry((ptr)->pNext, type, member)
 
-#define AL_ListNextEntry(pos, member) \
-  AL_ListEntry((pos)->member.pNext, typeof(*(pos)), member)
+#define AL_ListNextEntry(pos, type, member) \
+  AL_ListEntry((pos)->member.pNext, type, member)
 
 #define AL_ListForEachEntry(pos, head, member) \
   for(pos = AL_ListFirstEntry(head, typeof(*pos), member); \
       &pos->member != (head); \
-      pos = AL_ListNextEntry(pos, member))
+      pos = AL_ListNextEntry(pos, typeof(*pos), member))
 
 #define AL_ListForEachEntrySafe(pos, next, head, member) \
   for(pos = AL_ListFirstEntry(head, typeof(*pos), member), \
-      next = AL_ListNextEntry(pos, member); \
+      next = AL_ListNextEntry(pos, typeof(*pos), member); \
       &pos->member != (head); \
-      pos = next, next = AL_ListNextEntry(next, member))
+      pos = next, next = AL_ListNextEntry(next, typeof(*pos), member))
+
+#define AL_ListForEachEntryWithType(pos, head, member, type) \
+  for(pos = AL_ListFirstEntry(head, type, member); \
+      &pos->member != (head); \
+      pos = AL_ListNextEntry(pos, type, member))
+
+/**
+* AL_ListFindEntryByAddr - Generic macro to find a list entry by address
+* @head: The list_head pointer
+* @type: The type of the structure containing the list
+* @member: The name of the list_head member in the structure
+* @target_addr: The expected address to match
+* @result: Variable to store the result (output parameter)
+*/
+#define AL_ListFindEntryByAddr(head, type, member, target_addr, result) \
+  do { \
+    type* __entry = NULL, * __tmp; \
+   \
+    result = NULL; \
+    AL_ListForEachEntrySafe(__entry, __tmp, head, member) { \
+      if(__entry == (type*)(target_addr)){ \
+        result = __entry; \
+        break; \
+      } \
+    } \
+  } while(0)
 
 static inline int AL_ListEmpty(const AL_ListHead* pHead)
 {

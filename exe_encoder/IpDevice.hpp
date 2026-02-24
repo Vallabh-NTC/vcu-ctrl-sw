@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,8 +11,8 @@
 extern "C"
 {
 #include "lib_encode/lib_encoder.h"
-#include "lib_log/LoggerInterface.h"
-#include "lib_log/TimerInterface.h"
+#include "lib_log/I_Logger.h"
+#include "lib_log/I_Timer.h"
 }
 
 typedef struct AL_TAllocator AL_TAllocator;

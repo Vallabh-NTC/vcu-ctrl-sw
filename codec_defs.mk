@@ -1,9 +1,6 @@
 ENABLE_64BIT?=1
 ENABLE_STATIC?=0
 BIN?=bin
-  ifneq ($(ENABLE_SH_TESTS),0)
-    TEST=test
-  endif
 
 GENERATED_FILES_DIR=$(BIN)/gen
 
@@ -45,5 +42,5 @@ else
 endif
 endif
 
-
 REF_LDFLAGS+=$(LDFLAGS)
+REF_LDFLAGS+=-lm

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -10,6 +10,8 @@
 #include "lib_rtos/lib_rtos.h"
 
 #include "lib_common/SyntaxConversion.h"
+
+#include "lib_common/SeiInternal.h"
 
 /*****************************************************************************/
 void AL_RbspEncoding_WriteAUD(AL_TBitStreamLite* pBS, AL_TAud const* pAud)
@@ -74,12 +76,12 @@ void AL_RbspEncoding_CloseSEI(AL_TBitStreamLite* pBS)
 }
 
 /******************************************************************************/
-void AL_RbspEncoding_WriteUserDataUnregistered(AL_TBitStreamLite* pBS, uint8_t uuid[16], int8_t numSlices)
+void AL_RbspEncoding_WriteAllegroNumSlicesSEI(AL_TBitStreamLite* pBS, int8_t numSlices)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 5);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_USER_DATA_UNREGISTERED);
 
-  for(int32_t i = 0; i < 16; i++)
-    AL_BitStreamLite_PutU(pBS, 8, uuid[i]);
+  for(int32_t i = 0; i < UUID_SIZE; i++)
+    AL_BitStreamLite_PutU(pBS, 8, ALLEGRO_NUM_SLICES_SEI_UUID[i]);
 
   AL_BitStreamLite_PutU(pBS, 8, numSlices);
 
@@ -90,7 +92,7 @@ void AL_RbspEncoding_WriteUserDataUnregistered(AL_TBitStreamLite* pBS, uint8_t u
 /******************************************************************************/
 void AL_RbspEncoding_WriteMasteringDisplayColourVolume(AL_TBitStreamLite* pBS, AL_TMasteringDisplayColourVolume* pMDCV)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 137);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_MASTERING_DISPLAY_COLOUR_VOLUME);
 
   for(int32_t c = 0; c < 3; c++)
   {
@@ -111,7 +113,7 @@ void AL_RbspEncoding_WriteMasteringDisplayColourVolume(AL_TBitStreamLite* pBS, A
 /******************************************************************************/
 void AL_RbspEncoding_WriteContentLightLevel(AL_TBitStreamLite* pBS, AL_TContentLightLevel* pCLL)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 144);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_CONTENT_LIGHT_LEVEL);
 
   AL_BitStreamLite_PutU(pBS, 16, pCLL->max_content_light_level);
   AL_BitStreamLite_PutU(pBS, 16, pCLL->max_pic_average_light_level);
@@ -123,7 +125,7 @@ void AL_RbspEncoding_WriteContentLightLevel(AL_TBitStreamLite* pBS, AL_TContentL
 /******************************************************************************/
 void AL_RbspEncoding_WriteAlternativeTransferCharacteristics(AL_TBitStreamLite* pBS, AL_TAlternativeTransferCharacteristics* pATC)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 147);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_ALTERNATIVE_TRANSFER_CHARACTERISTICS);
 
   AL_BitStreamLite_PutU(pBS, 8, AL_TransferCharacteristicsToVUIValue(pATC->preferred_transfer_characteristics));
 
@@ -134,7 +136,7 @@ void AL_RbspEncoding_WriteAlternativeTransferCharacteristics(AL_TBitStreamLite* 
 /******************************************************************************/
 void AL_RbspEncoding_WriteST2094_10(AL_TBitStreamLite* pBS, AL_TDynamicMeta_ST2094_10* pST2094_10)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 4);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_USER_DATA_REGISTERED);
 
   AL_BitStreamLite_PutU(pBS, 8, 0xB5);
   AL_BitStreamLite_PutU(pBS, 16, 0x3B);
@@ -215,7 +217,7 @@ void WriteST2094_40_PeakLuminance(AL_TBitStreamLite* pBS, AL_TDisplayPeakLuminan
 
 void AL_RbspEncoding_WriteST2094_40(AL_TBitStreamLite* pBS, AL_TDynamicMeta_ST2094_40* pST2094_40)
 {
-  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, 4);
+  int32_t const bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_USER_DATA_REGISTERED);
 
   AL_BitStreamLite_PutU(pBS, 8, 0xB5);
   AL_BitStreamLite_PutU(pBS, 16, 0x3C);

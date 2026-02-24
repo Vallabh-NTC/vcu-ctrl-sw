@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "AvcHwBufInitialization.h"
@@ -8,7 +8,7 @@
 #include "lib_rtos/lib_rtos.h"
 
 /*****************************************************************************/
-void AL_AVC_InitHWFrameBuffers(AL_TScl const* pSclLst, AL_EChromaMode eCMode, AL_TDecBuffers* pBufs)
+void AL_AVC_InitHWFrameBuffers(AL_TScalingList const* pSclLst, AL_EChromaMode eCMode, AL_TDecBuffers* pBufs)
 {
   AL_AVC_WriteDecHwScalingList(pSclLst, eCMode, pBufs->tScl.tMD.pVirtualAddr);
 }

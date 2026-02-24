@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,8 +13,8 @@ extern "C"
 
 static constexpr uint8_t CurrentCompFileVersion = 3;
 
-#define TM_TILE_32x4 1 << 0
-#define TM_TILE_64x4 1 << 1
+#define TM_TILE_32x4 (1 << 0)
+#define TM_TILE_64x4 (1 << 1)
 
 enum ETileMode : uint8_t
 {

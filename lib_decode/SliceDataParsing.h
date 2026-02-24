@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -74,7 +74,7 @@ void AL_TerminatePreviousCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPicPa
    \param[in]  bIsLastVclNalInAU Specifies if this is the last NAL of the current access unit
    \param[in]  bIsValid          Specifies if the current NAL has been correctly decoded
 *****************************************************************************/
-void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPicParam, AL_TDecBuffers* pBufs, AL_TDecSliceParam* pSliceParam, AL_TAvcSliceHdr* pSlice, bool bIsLastVclNalInAU, bool bIsValid);
+void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScalingList* pSCL, AL_TDecPicParam* pPicParam, AL_TDecBuffers* pBufs, AL_TDecSliceParam* pSliceParam, AL_TAvcSliceHdr* pSlice, bool bIsLastVclNalInAU, bool bIsValid);
 
 /*****************************************************************************
    \brief The AL_HEVC_PrepareCommand function prepares the buffers for the hardware decoding process
@@ -87,7 +87,7 @@ void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPi
    \param[in]  bIsLastVclNalInAU Specifies if this is the last NAL of the current access unit
    \param[in]  bIsValid          Specifies if the current NAL has been correctly decoded
 *****************************************************************************/
-void AL_HEVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPicParam, AL_TDecBuffers* pBufs, AL_TDecSliceParam* pSliceParam, AL_THevcSliceHdr* pSlice, bool bIsLastVclNalInAU, bool bIsValid);
+void AL_HEVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScalingList* pSCL, AL_TDecPicParam* pPicParam, AL_TDecBuffers* pBufs, AL_TDecSliceParam* pSliceParam, AL_THevcSliceHdr* pSlice, bool bIsLastVclNalInAU, bool bIsValid);
 
 void AL_SaveNalStreamBlk1(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam);
 void AL_TerminateCurrentCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPicParam, AL_TDecSliceParam* pSliceParam);

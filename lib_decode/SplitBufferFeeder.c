@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "SplitBufferFeeder.h"
@@ -15,15 +15,15 @@ void AL_Decoder_InternalFlush(AL_HDecoder hDec);
 
 typedef struct AL_TSplitBufferFeeder
 {
-  const AL_TFeederVtable* vtable;
+  AL_TFeederVtable const* vtable;
   AL_HANDLE hDec;
   AL_TFifo inputFifo;
   WorkPool workPool;
 
   AL_EVENT incomingWorkEvent;
   AL_THREAD process;
-  Rtos_AtomicInt numInputBuf;
-  Rtos_AtomicInt keepGoing;
+  Rtos_AtomicVolatileType numInputBuf;
+  Rtos_AtomicVolatileType keepGoing;
   AL_MUTEX lock;
   bool eos;
   AL_TBuffer* pEOSBuffer;
@@ -53,14 +53,14 @@ static void freeBuf(AL_TFeeder* hFeeder, AL_TBuffer* pBuf)
 
 static bool HasInputBuffer(AL_TSplitBufferFeeder* this)
 {
-  Rtos_AtomicInt numInputBuf = Rtos_AtomicDecrement(&this->numInputBuf);
+  Rtos_AtomicVolatileType numInputBuf = Rtos_AtomicDecrement(&this->numInputBuf);
   Rtos_AtomicIncrement(&this->numInputBuf);
   return numInputBuf >= 0;
 }
 
 static bool shouldKeepGoing(AL_TSplitBufferFeeder* this)
 {
-  Rtos_AtomicInt keepGoing = Rtos_AtomicDecrement(&this->keepGoing);
+  Rtos_AtomicVolatileType keepGoing = Rtos_AtomicDecrement(&this->keepGoing);
   Rtos_AtomicIncrement(&this->keepGoing);
   return keepGoing >= 0;
 }

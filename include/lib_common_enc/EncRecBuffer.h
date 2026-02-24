@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -11,15 +11,16 @@
 
 #include "lib_common/SliceConsts.h"
 #include "lib_common/PixMapBuffer.h"
+#include "lib_common/Index.h"
 
 /*****************************************************************************
    \brief Reconstructed picture information
 *****************************************************************************/
 typedef struct AL_TReconstructedInfo
 {
-  uint32_t uID;
+  AL_TIndex tID;
   AL_EPicStruct ePicStruct; /*!< Specifies the pic_struct: subset of table D-1 */
-  uint32_t iPOC; /*!< the Picture Order Count of the frame buffer */
+  int32_t iPOC; /*!< the Picture Order Count of the frame buffer */
   AL_TDimension tPicDim; /*!< The dimension of the reconstructed frame buffer */
 }AL_TReconstructedInfo;
 

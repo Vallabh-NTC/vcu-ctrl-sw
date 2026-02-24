@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -23,6 +23,7 @@ typedef struct AL_IDecArchVtable
   void (* DecoderFlush)(AL_HDecoder hDec);
   void (* DecoderForceStop)(AL_HDecoder hDec);
   bool (* DecoderPutDisplayPicture)(AL_HDecoder hDec, AL_TBuffer* pDisplay);
+  bool (* DecoderPutDisplayPictureExt)(AL_HDecoder hDec, uint8_t uLayerID, AL_TBuffer* pDisplay);
   AL_ECodec (* DecoderGetCodec)(AL_HDecoder hDec);
   int32_t (* DecoderGetMaxBD)(AL_HDecoder hDec);
   AL_ERR (* DecoderGetLastError)(AL_HDecoder hDec);

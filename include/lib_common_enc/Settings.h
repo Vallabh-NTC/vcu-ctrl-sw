@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -85,7 +85,7 @@ typedef struct AL_TColorConfig
 /*****************************************************************************
    \brief Encoder Parameters
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct AL_TEncSettings
+typedef struct AL_TEncSettings
 {
   AL_TEncChanParam tChParam[MAX_NUM_LAYER]; /*!< Specifies the Channel parameters of the correspondong layer. Except for SHVC encoding (when supported) only layer 0 is used.*/
   bool bEnableAUD; /*!< Enable Access Unit Delimiter nal unit in the stream */

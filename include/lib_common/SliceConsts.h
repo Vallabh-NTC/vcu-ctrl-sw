@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -9,6 +9,8 @@
 #pragma once
 
 #include "Profiles.h"
+
+#define AL_MAX_SLICES_SUBFRAME 32
 
 #define AL_MAX_NUM_REF 16
 #define AL_MAX_NUM_B_PICT 30
@@ -78,8 +80,6 @@ typedef struct AL_TOffset
   int32_t iX;
   int32_t iY;
 }AL_TOffset;
-
-#define AL_MAX_SLICES_SUBFRAME 32
 
 /*****************************************************************************
    \brief Filler Data Control Mode

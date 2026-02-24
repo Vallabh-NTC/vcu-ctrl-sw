@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -12,8 +12,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
-
-#define AL_INTROSPECT(...)
 
 #ifdef __GNUC__
 #include <stdalign.h>

@@ -1,13 +1,16 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "Sections.h"
+#include "ITU_Section.h"
 #include "NalWriters.h"
 
-#include <stdio.h>
-
+#include "lib_bitstream/BitStreamLite.h"
+#include "lib_common/SEI.h"
+#include "lib_common/SliceConsts.h"
 #include "lib_common/StreamBuffer.h"
+#include "lib_common/StreamSection.h"
 #include "lib_common/Utils.h"
+#include "lib_rtos/lib_rtos.h"
 
 #include "lib_bitstream/AVC_RbspEncod.h"
 #include "lib_encode/AVC_Sections.h"
@@ -35,7 +38,7 @@ static int32_t writeNalInBuffer(IRbspWriter* writer, uint8_t* buffer, int32_t bu
 static int32_t WriteNal(IRbspWriter* writer, AL_TBitStreamLite* bitstream, int32_t bitstreamSize, AL_TNalUnit* nal, AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned)
 {
   uint8_t tmpBuffer[AL_ENC_MAX_HEADER_SIZE];
-
+  uint8_t* pInitialStreamData = AL_BitStreamLite_GetCurData(bitstream);
   int32_t sizeInBits = writeNalInBuffer(writer, tmpBuffer, bitstreamSize, nal);
 
   if(sizeInBits < 0)
@@ -47,17 +50,21 @@ static int32_t WriteNal(IRbspWriter* writer, AL_TBitStreamLite* bitstream, int32
 
   if(bitstream->isOverflow)
     return -1;
-  return end - start;
+
+  int32_t size = end - start;
+  Rtos_FlushCacheMemory(pInitialStreamData, size);
+
+  return size;
 }
 
-static void GenerateNal(IRbspWriter* writer, AL_TBitStreamLite* bitstream, int32_t bitstreamSize, AL_TNalUnit* nal, AL_TStreamMetaData* pMeta, uint32_t uFlags, AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned)
+static void GenerateNal(IRbspWriter* writer, AL_TBitStreamLite* bitstream, int32_t bitstreamSize, AL_TNalUnit* nal, AL_TStreamMetaData* pMeta, AL_ESectionFlags eFlags, AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned)
 {
   int32_t start = getBytesOffset(bitstream);
   int32_t size = WriteNal(writer, bitstream, bitstreamSize, nal, eStartCodeBytesAligned);
   /* we should always be able to write the configuration nals as we reserved
    * enough space for them */
   Rtos_Assert(size >= 0);
-  AL_StreamMetaData_AddSection(pMeta, start, size, uFlags);
+  AL_StreamMetaData_AddSection(pMeta, start, size, eFlags);
 }
 
 static void GenerateConfigNalUnits(IRbspWriter* writer, AL_TNalUnit* nals, uint32_t* nalsFlags, int32_t nalsCount, AL_TBuffer* pStream, AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned)
@@ -77,26 +84,24 @@ static AL_TSeiPrefixAPSCtx createSeiPrefixAPSCtx(AL_TSps* sps, AL_TVps* vps)
   return ctx;
 }
 
-static AL_TSeiPrefixCtx createSeiPrefixCtx(const AL_TNalsData* pNalsData, AL_TEncPicStatus const* pPicStatus, uint32_t uFlags)
+static AL_TSeiPrefixCtx createSeiPrefixCtx(const AL_TNalsData* pNalsData, AL_TEncPicStatus const* pPicStatus, AL_ESeiFlag eFlags)
 {
   AL_TSeiPrefixCtx ctx =
   {
     pNalsData->sps,
     pNalsData->seiData.initialCpbRemovalDelay,
     pNalsData->seiData.cpbRemovalDelay,
-    uFlags,
+    eFlags,
     pPicStatus,
     pNalsData->seiData.pHDRSEIs,
   };
   return ctx;
 }
 
-static AL_TSeiPrefixUDUCtx createSeiPrefixUDUCtx(int8_t iNumSlices)
+static AL_TAllegroNumSlicesSeiCtx createAllegroNumSlicesSeiCtx(int8_t iNumSlices)
 {
-  AL_TSeiPrefixUDUCtx ctx;
-  int32_t iSize = ARRAY_SIZE(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID);
-  Rtos_Memcpy(&ctx.uuid, SEI_PREFIX_USER_DATA_UNREGISTERED_UUID, iSize);
-  Rtos_Memcpy(&ctx.numSlices, &iNumSlices, sizeof(iNumSlices));
+  AL_TAllegroNumSlicesSeiCtx ctx;
+  ctx.numSlices = iNumSlices;
   return ctx;
 }
 
@@ -109,38 +114,38 @@ static int32_t getOffsetAfterLastSection(AL_TStreamMetaData* pMeta)
   return lastSection.uOffset + lastSection.uLength;
 }
 
-static uint32_t generateSeiFlags(AL_TEncPicStatus const* pPicStatus, bool bForceSEIRecoveryPointOnIDR)
+static AL_ESeiFlag generateSeiFlags(AL_TEncPicStatus const* pPicStatus, bool bForceSEIRecoveryPointOnIDR)
 {
-  uint32_t uFlags = AL_SEI_PT;
+  AL_ESeiFlag eFlags = AL_SEI_PT;
 
   if(pPicStatus->eType == AL_SLICE_I)
   {
-    uFlags |= AL_SEI_BP;
+    eFlags |= AL_SEI_BP;
 
     bool bShouldUseSEIRecoveryPoint = (!pPicStatus->bIsIDR || bForceSEIRecoveryPointOnIDR);
 
     if(bShouldUseSEIRecoveryPoint)
-      uFlags |= AL_SEI_RP;
+      eFlags |= AL_SEI_RP;
   }
   else if(pPicStatus->iRecoveryCnt != 0)
-    uFlags |= AL_SEI_RP;
+    eFlags |= AL_SEI_RP;
 
-  return uFlags;
+  return eFlags;
 }
 
-static uint32_t generateHDRSeiFlags(bool bWriteSPS, bool bMustWriteDynHDR)
+static AL_ESeiFlag generateHDRSeiFlags(bool bWriteSPS, bool bMustWriteDynHDR)
 {
-  uint32_t uFlags = 0;
+  AL_ESeiFlag eFlags = AL_SEI_NONE;
 
   if(bWriteSPS)
-    uFlags |= AL_SEI_MDCV | AL_SEI_CLL | AL_SEI_ATC;
+    eFlags |= AL_SEI_MDCV | AL_SEI_CLL | AL_SEI_ATC;
 
-  uFlags |= AL_SEI_ST2094_10;
+  eFlags |= AL_SEI_ST2094_10;
 
   if(bWriteSPS || bMustWriteDynHDR)
-    uFlags |= AL_SEI_ST2094_40;
+    eFlags |= AL_SEI_ST2094_40;
 
-  return uFlags;
+  return eFlags;
 }
 
 void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pNalsData, AL_TBuffer* pStream, AL_TEncPicStatus const* pPicStatus, int32_t iLayerID, int32_t iNumSlices, bool bSubframeLatency, bool bForceSEIRecoveryPointOnIDR)
@@ -149,13 +154,13 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
   if(pPicStatus->bIsFirstSlice)
   {
-    AL_TNalUnit nals[10];
-    uint32_t nalsFlags[10];
+    AL_TNalUnit nals[11];
+    AL_ESectionFlags nalsFlags[11];
     int32_t nalsCount = 0;
 
     if(pNalsData->bMustWriteAud)
     {
-      nals[nalsCount] = AL_CreateAud(nuts.audNut, pNalsData->aud, pPicStatus->uTempId);
+      nals[nalsCount] = AL_CreateAud(nuts.audNut, pNalsData->aud, pPicStatus->uTemporalId);
       nalsFlags[nalsCount++] = AL_SECTION_CONFIG_FLAG;
     }
 
@@ -165,7 +170,7 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
     if(bWriteVPS)
     {
-      nals[nalsCount] = AL_CreateVps(nuts.vpsNut, pNalsData->vps, pPicStatus->uTempId);
+      nals[nalsCount] = AL_CreateVps(nuts.vpsNut, pNalsData->vps, pPicStatus->uTemporalId);
       nalsFlags[nalsCount++] = AL_SECTION_CONFIG_FLAG;
     }
 
@@ -173,7 +178,7 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
     if(bWriteSPS)
     {
-      nals[nalsCount] = AL_CreateSps(nuts.spsNut, pNalsData->sps, iLayerID, pPicStatus->uTempId);
+      nals[nalsCount] = AL_CreateSps(nuts.spsNut, pNalsData->sps, iLayerID, pPicStatus->uTemporalId);
       nalsFlags[nalsCount++] = AL_SECTION_CONFIG_FLAG;
     }
 
@@ -181,7 +186,7 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
     if(bWritePPS)
     {
-      nals[nalsCount] = AL_CreatePps(nuts.ppsNut, pNalsData->pps, iLayerID, pPicStatus->uTempId);
+      nals[nalsCount] = AL_CreatePps(nuts.ppsNut, pNalsData->pps, iLayerID, pPicStatus->uTemporalId);
       nalsFlags[nalsCount++] = AL_SECTION_CONFIG_FLAG;
     }
 
@@ -192,33 +197,33 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
     {
       Rtos_Assert(pNalsData->seiFlags != AL_SEI_NONE);
 
-      uint32_t uFlags = generateSeiFlags(pPicStatus, bForceSEIRecoveryPointOnIDR);
-      uFlags |= generateHDRSeiFlags(bWriteSPS, pNalsData->bMustWriteDynHDR);
-      uFlags &= pNalsData->seiFlags;
+      AL_ESeiFlag eFlags = generateSeiFlags(pPicStatus, bForceSEIRecoveryPointOnIDR);
+      eFlags |= generateHDRSeiFlags(bWriteSPS, pNalsData->bMustWriteDynHDR);
+      eFlags &= pNalsData->seiFlags;
 
-      bool bIsBufferingPeriodOrPictureTiming = ((uFlags & (AL_SEI_BP | AL_SEI_PT)) != 0);
+      bool bIsBufferingPeriodOrPictureTiming = ((eFlags & (AL_SEI_BP | AL_SEI_PT)) != 0);
 
       if(bIsBufferingPeriodOrPictureTiming && writer->WriteSEI_ActiveParameterSets)
       {
         seiPrefixAPSCtx = createSeiPrefixAPSCtx(pNalsData->sps, pNalsData->vps);
-        nals[nalsCount] = AL_CreateSeiPrefixAPS(&seiPrefixAPSCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTempId);
+        nals[nalsCount] = AL_CreateSeiPrefixAPS(&seiPrefixAPSCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTemporalId);
         nalsFlags[nalsCount++] = AL_SECTION_SEI_PREFIX_FLAG;
       }
 
-      if(uFlags)
+      if(eFlags != AL_SEI_NONE)
       {
-        seiPrefixCtx = createSeiPrefixCtx(pNalsData, pPicStatus, uFlags);
-        nals[nalsCount] = AL_CreateSeiPrefix(&seiPrefixCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTempId);
+        seiPrefixCtx = createSeiPrefixCtx(pNalsData, pPicStatus, eFlags);
+        nals[nalsCount] = AL_CreateSeiPrefix(&seiPrefixCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTemporalId);
         nalsFlags[nalsCount++] = AL_SECTION_SEI_PREFIX_FLAG;
       }
     }
 
-    AL_TSeiPrefixUDUCtx seiPrefixUDUCtx;
+    AL_TAllegroNumSlicesSeiCtx tAllegroNumSlicesSeiCtx;
 
     if(bSubframeLatency)
     {
-      seiPrefixUDUCtx = createSeiPrefixUDUCtx(iNumSlices);
-      nals[nalsCount] = AL_CreateSeiPrefixUDU(&seiPrefixUDUCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTempId);
+      tAllegroNumSlicesSeiCtx = createAllegroNumSlicesSeiCtx(iNumSlices);
+      nals[nalsCount] = AL_CreateAllegroNumSlicesSei(&tAllegroNumSlicesSeiCtx, nuts.seiPrefixNut, iLayerID, pPicStatus->uTemporalId);
       nalsFlags[nalsCount++] = AL_SECTION_SEI_PREFIX_FLAG;
     }
 
@@ -232,8 +237,8 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
   for(int32_t iPart = 0; iPart < pPicStatus->iNumParts; ++iPart)
   {
-    AL_ESectionFlags eFlags = AL_SECTION_NO_FLAG;
-    AL_StreamMetaData_AddSection(pMetaData, pStreamParts[iPart].uOffset, pStreamParts[iPart].uSize, eFlags);
+    AL_ESectionFlags eSectionFlags = AL_SECTION_NO_FLAG;
+    AL_StreamMetaData_AddSection(pMetaData, pStreamParts[iPart].uOffset, pStreamParts[iPart].uSize, eSectionFlags);
   }
 
   int32_t offset = getOffsetAfterLastSection(pMetaData);
@@ -248,17 +253,29 @@ void GenerateSections(IRbspWriter* writer, AL_TNuts nuts, AL_TNalsData const* pN
 
   if(shouldWriteFiller)
   {
-    bool bDontFill = (pNalsData->fillerCtrlMode == AL_FILLER_APP);
+    AL_TNalHeader header = nuts.GetNalHeader(nuts.fdNut, 0, 0, pPicStatus->uTemporalId);
+    int32_t const iMaxStartCodeSize = (pNalsData->eStartCodeBytesAligned == AL_START_CODE_4_BYTES) ? 4 : 3;
+    int32_t const iFDAtLeastOneWord = 1; /* 0xFF */
+    int32_t const iFDLastWord = 1; /* 0x80 */
+    AL_64U const iMinSpaceRequired = header.size + iMaxStartCodeSize + iFDAtLeastOneWord + iFDLastWord;
+    bool bNotEnoughSpaceLeft = (BitsToBytes(bs.iMaxBits - AL_BitStreamLite_GetBitsCount(&bs))) < iMinSpaceRequired;
 
-    int32_t iBookmark = AL_BitStreamLite_GetBitsCount(&bs);
-    AL_TNalHeader header = nuts.GetNalHeader(nuts.fdNut, 0, 0, pPicStatus->uTempId);
-    WriteFillerData(writer, &bs, nuts.fdNut, &header, pPicStatus->iFiller, bDontFill, pNalsData->eStartCodeBytesAligned);
-    int32_t iWritten = (AL_BitStreamLite_GetBitsCount(&bs) - iBookmark) / 8;
+    if(bNotEnoughSpaceLeft)
+      Rtos_Log(AL_LOG_CRITICAL, "[WARNING] Filler data (%i) doesn't fit in the current buffer. Don't add them", pPicStatus->iFiller);
+    else
+    {
+      bool bDontFill = (pNalsData->fillerCtrlMode == AL_FILLER_APP);
+      int32_t iBookmark = AL_BitStreamLite_GetBitsCount(&bs);
+      /* iFiller should be at least iMinSpaceRequired */
+      int32_t iFiller = Clip3(pPicStatus->iFiller, iMinSpaceRequired, pPicStatus->iFiller);
+      WriteFillerData(writer, &bs, nuts.fdNut, &header, iFiller, bDontFill, pNalsData->eStartCodeBytesAligned);
+      int32_t iWritten = BitsToBytes(AL_BitStreamLite_GetBitsCount(&bs) - iBookmark);
 
-    if(iWritten < pPicStatus->iFiller)
-      Rtos_Log(AL_LOG_CRITICAL, "[WARNING] Filler data (%i) doesn't fit in the current buffer. Clip it to %i !\n", pPicStatus->iFiller, iWritten);
+      if(iWritten < pPicStatus->iFiller)
+        Rtos_Log(AL_LOG_CRITICAL, "[WARNING] Filler data (%i) doesn't fit in the current buffer. Clip it to %i !\n", pPicStatus->iFiller, iWritten);
 
-    AL_StreamMetaData_AddSection(pMetaData, offset, iWritten, bDontFill ? AL_SECTION_APP_FILLER_FLAG : AL_SECTION_FILLER_FLAG);
+      AL_StreamMetaData_AddSection(pMetaData, offset, iWritten, bDontFill ? AL_SECTION_APP_FILLER_FLAG : AL_SECTION_FILLER_FLAG);
+    }
   }
 
   if(pPicStatus->bIsLastSlice)

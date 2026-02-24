@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
-   \addtogroup lib_common
+   \addtogroup lib_decode
    !@{
    \file
  *****************************************************************************/
@@ -18,7 +18,7 @@
    \param[out] pBuf    Pointer to buffer that receives the scaling list
                      matrices data
 *****************************************************************************/
-extern void AL_AVC_WriteDecHwScalingList(AL_TScl const* pSclLst, AL_EChromaMode eCMode, uint8_t* pBuf);
+void AL_AVC_WriteDecHwScalingList(AL_TScalingList const* pSclLst, AL_EChromaMode eCMode, uint8_t* pBuf);
 
 /*****************************************************************************
    \brief Dumps Hardware formatted decoder scaling list into buffer of bytes
@@ -26,6 +26,6 @@ extern void AL_AVC_WriteDecHwScalingList(AL_TScl const* pSclLst, AL_EChromaMode 
    \param[out] pBuf    Pointer to buffer that receives the scaling list
                      matrices data
 *****************************************************************************/
-extern void AL_HEVC_WriteDecHwScalingList(AL_TScl const* pSclLst, uint8_t* pBuf);
+void AL_HEVC_WriteDecHwScalingList(AL_TScalingList const* pSclLst, uint8_t* pBuf);
 
 /*!@}*/

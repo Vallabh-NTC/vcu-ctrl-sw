@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -67,8 +67,8 @@ struct Config
   bool bMultiChunk = false;
   bool bCertCRC = false;
   std::set<std::string> sDecDevicePath;
-  int32_t iTimeoutInSeconds = -1;
-  int32_t iMaxFrames = INT32_MAX;
+  AL_64S iTimeoutInSeconds = -1;
+  AL_64S iMaxFrames = INT64_MAX;
   std::string seiFile = "";
   std::string hdrFile = "";
   bool bUsePreAlloc = false;

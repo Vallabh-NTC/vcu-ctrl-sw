@@ -1,11 +1,13 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_common/BufCommonInternal.h"
+#include "lib_common/BufConst.h"
 #include "lib_common/BufferAPI.h"
 #include "lib_common/PicFormat.h"
+#include "lib_common/Index.h"
 #include "lib_common_dec/DecBuffers.h"
 #include "lib_common_dec/DecOutputSettings.h"
 
@@ -13,7 +15,6 @@
 
 // Limitation on old decoder ips
 #define AL_MAX_HEIGHT 8192
-#define AL_MAX_HEIGHT_JPEG 32768
 #define SIZE_LCU_INFO 16   /*!< LCU compressed size + LCU offset                  */
 #define SCD_SIZE 128 /*!< size of start code detector output                */
 
@@ -51,7 +52,7 @@ static const int32_t POCBUFF_SUBPIC_OFFSET = 68;  // Frame with subpicture flag 
 *****************************************************************************/
 typedef struct TBufferRef
 {
-  uint8_t tNodeID;
+  AL_TIndex tNodeID;
 }TBufferRef, TBufferListRef[2][AL_MAX_REF + 1];
 
 /*****************************************************************************
@@ -113,8 +114,24 @@ int32_t AL_GetAllocSize_AvcMV(AL_TDimension tDim);
 *****************************************************************************/
 int32_t AL_GetAllocSize_Frame(AL_TDimension tDim, AL_EChromaMode eChromaMode, uint8_t uBitDepth, bool bFrameBufferCompression, AL_EFbStorageMode eFrameBufferStorageMode);
 
-uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_TPicFormat const* pPicFormat, uint8_t uMaxRef, uint8_t uAddrSizeInBytes);
+uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaMode eChromaMode, uint8_t uMaxRef, uint8_t uAddrSizeInBytes);
 
 int32_t AL_DecGetLumaPixPlanePitch(int32_t iWidth, AL_TPicFormat const* pPicFormat);
 int32_t AL_DecGetPixPlaneHeight(int32_t iHeight, AL_TPicFormat const* pPicFormat);
 
+/*****************************************************************************
+   \brief  Frame Buffer parameters that are used to create a AL_TPixMapBuffer
+*****************************************************************************/
+typedef struct AL_TDecFrameBufferParams
+{
+  AL_TDimension tDim;
+  AL_TPicFormat tPicFormat;
+}AL_TDecFrameBufferParams;
+
+/*****************************************************************************
+   \brief Creates A PixMapBuffer with the given parameters
+
+   \param[in] pFrameBufferParams Parameters to allocate the buffer
+   \return The allocated buffer
+*****************************************************************************/
+AL_TBuffer* AL_DecCreateFrameBuffer(AL_TDecFrameBufferParams const* pFrameBufferParams, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCountCallback, void* pUserParam);

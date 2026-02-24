@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -228,6 +228,3 @@ int32_t AL_Decoder_GetMinPitch(int32_t iWidth, AL_TPicFormat const* pPicFormat);
 int32_t AL_Decoder_GetMinStrideHeight(int32_t iHeight, AL_TPicFormat const* pPicFormat);
 
 /*!@}*/
-
-AL_DEPRECATED("Use AL_Decoder_PushStreamBuffer.")
-bool AL_Decoder_PushBuffer(AL_HDecoder hDec, AL_TBuffer* pBuf, size_t uSize);

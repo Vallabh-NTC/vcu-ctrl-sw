@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -78,6 +78,7 @@ bool AL_IEncScheduler_DestroyChannel(AL_IEncScheduler* pScheduler, AL_HANDLE hCh
    \brief Asks the scheduler to process a frame encoding
    \param[in] hChannel Channel identifier
    \param[in] pEncInfo Pointer to the encoding parameters structure
+   \param[in] pReqInfo Pointer to the encoder requests information
    \param[in] pBufferAddrs Pointer to the input buffer structure
    \return return true if the decoding launch is successful
    false otherwise
@@ -93,6 +94,7 @@ bool AL_IEncScheduler_EncodeOneFrame(AL_IEncScheduler* pScheduler, AL_HANDLE hCh
    while encoding a frame given with the EncodeOneFrame function.
    \param[in] hChannel Channel identifier
    \param[in] pStream stream buffer given for the scheduler to fill
+   \param[in] streamUserPtr stream pointer
    \param[in] uOffset offset in the stream buffer data
    \return return true if the buffer could be pushed in the scheduler
    false otherwise

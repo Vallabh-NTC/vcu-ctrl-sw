@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
@@ -33,6 +33,12 @@ void* Rtos_Malloc(size_t zSize)
 }
 
 /****************************************************************************/
+void* Rtos_Calloc(size_t zNumber, size_t zSize)
+{
+  return calloc(zNumber, zSize);
+}
+
+/****************************************************************************/
 void Rtos_Free(void* pMem)
 {
   free(pMem);
@@ -54,6 +60,12 @@ void* Rtos_Memmove(void* pDst, void const* pSrc, size_t zSize)
 void* Rtos_Memset(void* pDst, int32_t iVal, size_t zSize)
 {
   return memset(pDst, iVal, zSize);
+}
+
+/****************************************************************************/
+int32_t Rtos_Strncmp(char const* pStr1, char const* pStr2, size_t zSize)
+{
+  return strncmp(pStr1, pStr2, zSize);
 }
 
 /****************************************************************************/
@@ -223,14 +235,29 @@ static DWORD WINAPI WindowsCallback(void* p)
 AL_THREAD Rtos_CreateThread(void* (*pFunc)(void* pParam), void* pParam)
 {
   struct AL_WindowsThread* pThread = Rtos_Malloc(sizeof(*pThread));
+
+  if(pThread == NULL)
+    return NULL;
+
   DWORD id;
 
   pThread->func = pFunc;
   pThread->param = pParam;
+  pThread->handle = CreateThread(NULL, 0, WindowsCallback, pThread, 0, &id);
 
-  if(pThread)
-    pThread->handle = CreateThread(NULL, 0, WindowsCallback, pThread, 0, &id);
+  if(pThread->handle == NULL)
+  {
+    Rtos_Free(pThread);
+    return (AL_THREAD)NULL;
+  }
+
   return pThread;
+}
+
+AL_THREAD Rtos_CreateThreadWithPriority(void* (*pFunc)(void* pParam), void* pParam, uint32_t priority)
+{
+  (void)priority;
+  return Rtos_CreateThread(pFunc, pParam);
 }
 
 /****************************************************************************/
@@ -251,33 +278,37 @@ bool Rtos_JoinThread(AL_THREAD Thread)
 void Rtos_DeleteThread(AL_THREAD Thread)
 {
   CloseHandle(GetNative(Thread));
-  free(Thread);
+  Rtos_Free(Thread);
 }
 
 void* Rtos_DriverOpen(char const* name)
 {
-  (void)name;
-  return NULL; // not implemented
-}
-
-void Rtos_DriverClose(void* drv)
-{
-  (void)drv;
   // not implemented
+  (void)name;
+  return (void*)(intptr_t)-1;
 }
 
-int32_t Rtos_DriverIoctl(void* drv, unsigned long int req, void* data)
+void Rtos_DriverClose(void* driver)
 {
-  (void)drv;
-  (void)req;
+  // not implemented
+  (void)driver;
+}
+
+int32_t Rtos_DriverIoctl(void* driver, unsigned long int request, void* data)
+{
+  // not implemented
+  (void)driver;
+  (void)request;
   (void)data;
-  return -1; // not implemented
+  return -1;
 }
 
-int32_t Rtos_DriverPoll(void* drv, Rtos_PollCtx* ctx)
+int32_t Rtos_DriverPoll(void* driver, Rtos_PollCtx* ctx)
 {
-  (void)drv, (void)ctx;
-  return -1; // not implemented
+  // not implemented
+  (void)driver;
+  (void)ctx;
+  return -1;
 }
 
 /****************************************************************************/
@@ -320,37 +351,49 @@ AL_MUTEX Rtos_CreateMutex(void)
 {
   pthread_mutex_t* pMutex = (AL_MUTEX)Rtos_Malloc(sizeof(pthread_mutex_t));
 
-  if(pMutex)
+  if(pMutex == NULL)
+    return (AL_MUTEX)NULL;
+
+  pthread_mutexattr_t MutexAttr;
+
+  if(pthread_mutexattr_init(&MutexAttr) != 0)
   {
-    pthread_mutexattr_t MutexAttr;
-    pthread_mutexattr_init(&MutexAttr);
-    pthread_mutexattr_settype(&MutexAttr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(pMutex, &MutexAttr);
+    Rtos_Free(pMutex);
+    return (AL_MUTEX)NULL;
   }
+
+  if(pthread_mutexattr_settype(&MutexAttr, PTHREAD_MUTEX_RECURSIVE) != 0)
+  {
+    pthread_mutexattr_destroy(&MutexAttr);
+    Rtos_Free(pMutex);
+    return (AL_MUTEX)NULL;
+  }
+
+  if(pthread_mutex_init(pMutex, &MutexAttr) != 0)
+  {
+    pthread_mutexattr_destroy(&MutexAttr);
+    Rtos_Free(pMutex);
+    return (AL_MUTEX)NULL;
+  }
+
   return (AL_MUTEX)pMutex;
 }
 
 /****************************************************************************/
 void Rtos_DeleteMutex(AL_MUTEX Mutex)
 {
-  Rtos_Assert(Mutex);
   pthread_mutex_t* pMutex = (pthread_mutex_t*)Mutex;
-
-  if(pMutex)
-  {
-    pthread_mutex_destroy(pMutex);
-    Rtos_Free(pMutex);
-  }
+  pthread_mutex_destroy(pMutex);
+  Rtos_Free(pMutex);
 }
 
 /****************************************************************************/
 bool Rtos_GetMutex(AL_MUTEX Mutex)
 {
-  Rtos_Assert(Mutex);
-  pthread_mutex_t* pMutex = (pthread_mutex_t*)Mutex;
-
-  if(!pMutex)
+  if(Mutex == NULL)
     return false;
+
+  pthread_mutex_t* pMutex = (pthread_mutex_t*)Mutex;
 
   if(pthread_mutex_lock(pMutex) != 0)
     return false;
@@ -361,12 +404,12 @@ bool Rtos_GetMutex(AL_MUTEX Mutex)
 /****************************************************************************/
 bool Rtos_ReleaseMutex(AL_MUTEX Mutex)
 {
-  Rtos_Assert(Mutex);
-
-  if(!Mutex)
+  if(Mutex == NULL)
     return false;
 
-  if((pthread_mutex_unlock((pthread_mutex_t*)Mutex)) != 0)
+  pthread_mutex_t* pMutex = (pthread_mutex_t*)Mutex;
+
+  if((pthread_mutex_unlock(pMutex)) != 0)
     return false;
 
   return true;
@@ -377,8 +420,17 @@ AL_SEMAPHORE Rtos_CreateSemaphore(int32_t iInitialCount)
 {
   sem_t* pSem = (sem_t*)Rtos_Malloc(sizeof(sem_t));
 
-  if(pSem)
-    sem_init(pSem, 0, iInitialCount);
+  if(pSem == NULL)
+    return (AL_SEMAPHORE)NULL;
+
+  // No shared between processes
+  int iProcessShared = 0;
+
+  if(sem_init(pSem, iProcessShared, iInitialCount) != 0)
+  {
+    Rtos_Free(pSem);
+    return (AL_SEMAPHORE)NULL;
+  }
 
   return (AL_SEMAPHORE)pSem;
 }
@@ -387,12 +439,8 @@ AL_SEMAPHORE Rtos_CreateSemaphore(int32_t iInitialCount)
 void Rtos_DeleteSemaphore(AL_SEMAPHORE Semaphore)
 {
   sem_t* pSem = (sem_t*)Semaphore;
-
-  if(pSem)
-  {
-    sem_destroy(pSem);
-    Rtos_Free(pSem);
-  }
+  sem_destroy(pSem);
+  Rtos_Free(pSem);
 }
 
 /****************************************************************************/
@@ -400,7 +448,7 @@ bool Rtos_GetSemaphore(AL_SEMAPHORE Semaphore, uint32_t Wait)
 {
   sem_t* pSem = (sem_t*)Semaphore;
 
-  if(!pSem)
+  if(pSem == NULL)
     return false;
 
   int32_t ret;
@@ -448,7 +496,7 @@ bool Rtos_ReleaseSemaphore(AL_SEMAPHORE Semaphore)
 {
   sem_t* pSem = (sem_t*)Semaphore;
 
-  if(!pSem)
+  if(pSem == NULL)
     return false;
 
   sem_post(pSem);
@@ -458,46 +506,53 @@ bool Rtos_ReleaseSemaphore(AL_SEMAPHORE Semaphore)
 /****************************************************************************/
 AL_EVENT Rtos_CreateEvent(bool bInitialState)
 {
-  evt_t* pEvt = (evt_t*)Rtos_Malloc(sizeof(evt_t));
+  evt_t* pEvent = (evt_t*)Rtos_Malloc(sizeof(evt_t));
 
-  if(pEvt)
+  if(pEvent == NULL)
+    return (AL_EVENT)NULL;
+
+  if(pthread_mutex_init(&pEvent->Mutex, NULL) != 0)
   {
-    pthread_mutex_init(&pEvt->Mutex, 0);
-    pthread_cond_init(&pEvt->Cond, 0);
-    pEvt->bSignaled = bInitialState;
+    Rtos_Free(pEvent);
+    return (AL_EVENT)NULL;
   }
-  return (AL_EVENT)pEvt;
+
+  if(pthread_cond_init(&pEvent->Cond, NULL) != 0)
+  {
+    pthread_mutex_destroy(&pEvent->Mutex);
+    Rtos_Free(pEvent);
+    return (AL_EVENT)NULL;
+  }
+
+  pEvent->bSignaled = bInitialState;
+  return (AL_EVENT)pEvent;
 }
 
 /****************************************************************************/
 void Rtos_DeleteEvent(AL_EVENT Event)
 {
-  evt_t* pEvt = (evt_t*)Event;
-
-  if(pEvt)
-  {
-    pthread_cond_destroy(&pEvt->Cond);
-    pthread_mutex_destroy(&pEvt->Mutex);
-  }
-  Rtos_Free(pEvt);
+  evt_t* pEvent = (evt_t*)Event;
+  pthread_cond_destroy(&pEvent->Cond);
+  pthread_mutex_destroy(&pEvent->Mutex);
+  Rtos_Free(pEvent);
 }
 
 /****************************************************************************/
 bool Rtos_WaitEvent(AL_EVENT Event, uint32_t Wait)
 {
-  evt_t* pEvt = (evt_t*)Event;
+  evt_t* pEvent = (evt_t*)Event;
 
-  if(!pEvt)
+  if(pEvent == NULL)
     return false;
 
   bool reachedDeadline = false;
 
-  pthread_mutex_lock(&pEvt->Mutex);
+  pthread_mutex_lock(&pEvent->Mutex);
 
   if(Wait == AL_WAIT_FOREVER)
   {
-    while(!pEvt->bSignaled)
-      pthread_cond_wait(&pEvt->Cond, &pEvt->Mutex);
+    while(!pEvent->bSignaled)
+      pthread_cond_wait(&pEvent->Cond, &pEvent->Mutex);
   }
   else
   {
@@ -509,25 +564,25 @@ bool Rtos_WaitEvent(AL_EVENT Event, uint32_t Wait)
     deadline.tv_sec = (uWaitNsec / 1000000000ULL) + now.tv_sec;
     deadline.tv_nsec = uWaitNsec % 1000000000ULL;
 
-    while(!reachedDeadline && !pEvt->bSignaled)
-      reachedDeadline = (pthread_cond_timedwait(&pEvt->Cond, &pEvt->Mutex, &deadline) == ETIMEDOUT);
+    while(!reachedDeadline && !pEvent->bSignaled)
+      reachedDeadline = (pthread_cond_timedwait(&pEvent->Cond, &pEvent->Mutex, &deadline) == ETIMEDOUT);
   }
 
   if(!reachedDeadline)
-    pEvt->bSignaled = false;
+    pEvent->bSignaled = false;
 
-  pthread_mutex_unlock(&pEvt->Mutex);
+  pthread_mutex_unlock(&pEvent->Mutex);
   return !reachedDeadline;
 }
 
 /****************************************************************************/
 bool Rtos_SetEvent(AL_EVENT Event)
 {
-  evt_t* pEvt = (evt_t*)Event;
-  pthread_mutex_lock(&pEvt->Mutex);
-  pEvt->bSignaled = true;
-  bool bRet = pthread_cond_signal(&pEvt->Cond) == 0;
-  pthread_mutex_unlock(&pEvt->Mutex);
+  evt_t* pEvent = (evt_t*)Event;
+  pthread_mutex_lock(&pEvent->Mutex);
+  pEvent->bSignaled = true;
+  bool bRet = pthread_cond_signal(&pEvent->Cond) == 0;
+  pthread_mutex_unlock(&pEvent->Mutex);
   return bRet;
 }
 
@@ -542,11 +597,15 @@ AL_THREAD Rtos_CreateThread(void* (*pFunc)(void* pParam), void* pParam)
 {
   pthread_t* thread = Rtos_Malloc(sizeof(pthread_t));
 
-  if(thread)
+  if(thread == NULL)
+    return (AL_THREAD)NULL;
+
+  if(pthread_create(thread, NULL, pFunc, pParam) != 0)
   {
-    int success = pthread_create(thread, NULL, pFunc, pParam);
-    Rtos_Assert(success == 0);
+    Rtos_Free(thread);
+    return (AL_THREAD)NULL;
   }
+
   return (AL_THREAD)thread;
 }
 
@@ -559,15 +618,13 @@ void Rtos_SetCurrentThreadName(const char* pThreadName)
 /****************************************************************************/
 bool Rtos_JoinThread(AL_THREAD Thread)
 {
-  int32_t iRet;
-  iRet = pthread_join(GetNative(Thread), NULL);
-  return iRet == 0;
+  return pthread_join(GetNative(Thread), NULL) == 0;
 }
 
 /****************************************************************************/
 void Rtos_DeleteThread(AL_THREAD Thread)
 {
-  free((pthread_t*)Thread);
+  Rtos_Free((pthread_t*)Thread);
 }
 
 #include <sys/ioctl.h>
@@ -576,35 +633,46 @@ void Rtos_DeleteThread(AL_THREAD Thread)
 void* Rtos_DriverOpen(char const* name)
 {
   int32_t fd = open(name, O_RDWR | O_NONBLOCK);
-
-  if(fd == -1)
-    return NULL;
   return (void*)(intptr_t)fd;
 }
 
-void Rtos_DriverClose(void* drv)
+void Rtos_DriverClose(void* driver)
 {
-  int32_t fd = (int)(intptr_t)drv;
+  int32_t fd = (int)(intptr_t)driver;
   close(fd);
 }
 
-int32_t Rtos_DriverIoctl(void* drv, unsigned long int req, void* data)
+int32_t Rtos_DriverIoctl(void* driver, unsigned long int request, void* data)
 {
-  int32_t fd = (int)(intptr_t)drv;
-  return ioctl(fd, req, data);
+  int32_t fd = (int)(intptr_t)driver;
+  return ioctl(fd, request, data);
 }
 
 #include <poll.h>
-int32_t Rtos_DriverPoll(void* drv, Rtos_PollCtx* ctx)
+
+bool is_polling_error(int32_t err)
+{
+  return err < 0;
+}
+
+bool is_polling_timeout(int32_t err)
+{
+  return err == 0;
+}
+
+int32_t Rtos_DriverPoll(void* driver, Rtos_PollCtx* ctx)
 {
   struct pollfd pollData;
   /* bitfield are bit compatible */
   pollData.events = ctx->events;
-  pollData.fd = (int)(intptr_t)drv;
+  pollData.fd = (int)(intptr_t)driver;
 
   int32_t err = poll(&pollData, 1, ctx->timeout);
 
-  if(err == -1 || err == 0)
+  if(is_polling_timeout(err))
+    return err;
+
+  if(is_polling_error(err))
     return err;
 
   ctx->revents = pollData.revents;
@@ -676,54 +744,29 @@ bool Rtos_ReleaseSemaphore(AL_SEMAPHORE Semaphore)
 #endif
 
 #if defined(_MSC_VER)
-Rtos_AtomicInt Rtos_AtomicIncrement(Rtos_AtomicInt* iVal)
+Rtos_AtomicType Rtos_AtomicIncrement(Rtos_AtomicVolatileType* iVal)
 {
   return InterlockedIncrement(iVal);
 }
 
-Rtos_AtomicInt Rtos_AtomicDecrement(Rtos_AtomicInt* iVal)
+Rtos_AtomicType Rtos_AtomicDecrement(Rtos_AtomicVolatileType* iVal)
 {
   return InterlockedDecrement(iVal);
 }
 
 #else
 
-Rtos_AtomicInt Rtos_AtomicIncrement(Rtos_AtomicInt* iVal)
+Rtos_AtomicType Rtos_AtomicIncrement(Rtos_AtomicVolatileType* iVal)
 {
   return __sync_add_and_fetch(iVal, 1);
 }
 
-Rtos_AtomicInt Rtos_AtomicDecrement(Rtos_AtomicInt* iVal)
+Rtos_AtomicType Rtos_AtomicDecrement(Rtos_AtomicVolatileType* iVal)
 {
   return __sync_sub_and_fetch(iVal, 1);
 }
 
 #endif
-
-#if __MICROBLAZE__
-#include "McuSys.h"
-#include "McuDebug.h"
-
-void Rtos_InitCacheCB(void* ctx, Rtos_MemoryFnCB pfnInvalCB, Rtos_MemoryFnCB pfnFlushCB)
-{
-  (void)ctx;
-  (void)pfnInvalCB;
-  (void)pfnFlushCB;
-}
-
-void Rtos_InvalidateCacheMemory(void* pMem, size_t zSize)
-{
-  Mcu_ClearDcache(pMem, zSize);
-}
-
-void Rtos_FlushCacheMemory(void* pMem, size_t zSize)
-{
-  (void)pMem;
-  (void)zSize;
-  /* Not needed as microblaze use write through access */
-}
-
-#else
 
 static void* pCacheCBCtx;
 static Rtos_MemoryFnCB pfnInvalMemoryCB = NULL;
@@ -747,5 +790,3 @@ void Rtos_FlushCacheMemory(void* pMem, size_t zSize)
   if(pfnFlushMemoryCB)
     pfnFlushMemoryCB(pCacheCBCtx, pMem, zSize);
 }
-
-#endif

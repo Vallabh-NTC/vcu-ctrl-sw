@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -58,7 +58,7 @@ AL_TPixMapMetaData* AL_PixMapMetaData_Create(AL_TDimension tDim, AL_TPlane tYPla
    \return Returns NULL in case of failure. Returns a pointer to the metadata
    copy in case of success.
 *****************************************************************************/
-AL_TPixMapMetaData* AL_PixMapMetaData_Clone(AL_TPixMapMetaData* pMeta);
+AL_TPixMapMetaData* AL_PixMapMetaData_Clone(AL_TPixMapMetaData const* pMeta);
 
 /*****************************************************************************
    \brief Add a plane to a pixmap metadata
@@ -90,12 +90,5 @@ int32_t AL_PixMapMetaData_GetLumaSize(AL_TPixMapMetaData* pMeta);
    \return Returns size of the chroma region
 *****************************************************************************/
 int32_t AL_PixMapMetaData_GetChromaSize(AL_TPixMapMetaData* pMeta);
-
-AL_DEPRECATED("Use AL_PixMapMetaData_GetOffset.")
-int32_t AL_PixMapMetaData_GetOffsetY(AL_TPixMapMetaData* pMeta);
-AL_DEPRECATED("Use AL_PixMapMetaData_GetOffset.")
-int32_t AL_PixMapMetaData_GetOffsetUV(AL_TPixMapMetaData* pMeta);
-AL_DEPRECATED("Renamed. Use AL_TPixMapMetaData.")
-typedef AL_TPixMapMetaData AL_TSrcMetaData;
 
 /*!@}*/

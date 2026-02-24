@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_app/Parser.hpp"
@@ -54,7 +54,7 @@ std::string parseString(std::deque<Token>& tokens)
 
 int32_t parseEnum(std::deque<Token>& tokens, std::map<std::string, EnumDescription<int>> const& availableEnums)
 {
-  int32_t value {};
+  AL_64S value {};
   bool lastIsOr = false;
   bool lastIsIdent = false;
 
@@ -65,7 +65,7 @@ int32_t parseEnum(std::deque<Token>& tokens, std::map<std::string, EnumDescripti
       if(token.type == TokenType::Identifier)
       {
         if(lastIsOr)
-          value = (int)((uint32_t)value | (uint32_t)availableEnums.at(token.text).name);
+          value = (AL_64S)((AL_64U)value | (AL_64U)availableEnums.at(token.text).name);
         else if(!lastIsIdent)
           value = availableEnums.at(token.text).name;
         else

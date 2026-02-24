@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -25,14 +25,14 @@ extern "C"
 /*****************************************************************************
    \brief Mimics structure for RUN Section of cfg file
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct tCfgRunInfo
+struct TCfgRunInfo
 {
   std::vector<std::string> encDevicePaths;
   AL_EDeviceType eDeviceType;
   AL_ESchedulerType eSchedulerType;
   bool bLoop;
-  int32_t iMaxPict;
-  unsigned int iFirstPict;
+  AL_64S iMaxPict;
+  AL_64U iFirstPict;
   unsigned int iScnChgLookAhead;
   std::string sRecMd5Path;
   std::string sStreamMd5Path;
@@ -46,12 +46,12 @@ typedef AL_INTROSPECT (category = "debug") struct tCfgRunInfo
   std::string bitrateFile = "";
   AL_64U uInputSleepInMilliseconds;
   AL_EGenerateQpMode eGenerateQpMode = AL_GENERATE_UNIFORM_QP;
-}TCfgRunInfo;
+};
 
 /*****************************************************************************
    \brief Mimics structure for a configuration of an YUV Input
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
+struct TConfigYUVInput
 {
   // \brief YUV input file name(s)
   std::string YUVFileName;
@@ -68,7 +68,7 @@ typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
   // \brief Name of the file specifying the region of interest per frame is specified
   // happen
   std::string sRoiFileName;
-}TConfigYUVInput;
+};
 
 /*****************************************************************************
    \brief Source format
@@ -86,7 +86,7 @@ typedef enum
 /*****************************************************************************
    \brief Whole configuration file
 *****************************************************************************/
-AL_INTROSPECT(category = "debug") struct ConfigFile
+struct ConfigFile
 {
   // \brief Path to the cfg location
   std::string sCfgPath;

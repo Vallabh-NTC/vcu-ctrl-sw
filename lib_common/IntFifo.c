@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "IntFifo.h"
@@ -14,8 +14,8 @@ bool IntFifo_Init(IntFifo* self, int32_t elements[], int32_t total_elements)
   if(total_elements < 1)
     return false;
 
-  self->head = -1;
-  self->tail = -1;
+  self->head = AL_BAD_INDEX;
+  self->tail = AL_BAD_INDEX;
   self->total_elements = total_elements;
   self->elements = elements;
 
@@ -24,12 +24,12 @@ bool IntFifo_Init(IntFifo* self, int32_t elements[], int32_t total_elements)
 
 bool IntFifo_Empty(IntFifo const* self)
 {
-  return self->tail == -1;
+  return !AL_IS_VALID_INDEX(self->tail);
 }
 
 int32_t IntFifo_Size(IntFifo const* self)
 {
-  if(self->tail == -1)
+  if(IntFifo_Empty(self))
     return 0;
   return ((self->tail + self->total_elements - self->head) % self->total_elements) + 1;
 }
@@ -39,7 +39,7 @@ bool IntFifo_Queue(IntFifo* self, int32_t element)
   if(IntFifo_Size(self) == self->total_elements)
     return false;
 
-  if(self->tail == -1)
+  if(IntFifo_Empty(self))
   {
     self->tail++;
     self->head++;
@@ -62,8 +62,8 @@ int32_t IntFifo_Dequeue(IntFifo* self)
 
   if(IntFifo_Size(self) == 1)
   {
-    self->tail = -1;
-    self->head = -1;
+    self->tail = AL_BAD_INDEX;
+    self->head = AL_BAD_INDEX;
   }
   else
     self->head = (self->head + 1) % self->total_elements;

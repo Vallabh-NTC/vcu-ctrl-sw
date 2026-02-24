@@ -1,21 +1,22 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_decode/I_DecScheduler.h"
-#include "lib_common/IDriver.h"
+#include "lib_common/I_Communication.h"
 
-#if  __linux__
+#if defined(__linux__)
 
 #include <pthread.h>
-#include <stdio.h>
 #include <string.h> // strerrno, strlen, strcpy
 #include <errno.h>
 #include "lib_rtos/types.h" // static_assert
+#include "lib_rtos/lib_rtos.h" // event
 
 #include "allegro_ioctl_mcu_dec.h"
 #include "lib_common/List.h"
 #include "lib_common/Error.h"
 #include "lib_common_dec/SchedulerInfo.h"
+#include "lib_decode/DecSchedulerCommon.h"
 
 #define DCACHE_OFFSET 0x80000000
 
@@ -61,78 +62,79 @@ typedef struct
   int32_t fd;
   AL_THREAD thread;
   bool bBeingDestroyed;
-  AL_TDriver* driver;
-  AL_TDecScheduler_CB_EndParsing endParsingCB;
-  AL_TDecScheduler_CB_EndDecoding endDecodingCB;
+  AL_ICommunication* driver;
   int32_t iChannelID; // for debug purposes
+  AL_IDecSchedulerChanParams tSchedParams;
 }Channel;
 
-typedef struct
+typedef struct AL_TStartCodeMessage
 {
   int32_t fd;
   AL_TDecScheduler_CB_EndStartCode endStartCodeCB;
   bool bEnded;
-  AL_TDriver* driver;
-}SCMsg;
+  AL_ICommunication* driver;
+}AL_TStartCodeMessage;
 
-typedef struct
+typedef struct AL_TEvent
 {
-  void* pPriv;
-  AL_ListHead List;
-}AL_Event;
+  void* pPrivate;
+  AL_ListHead tList;
+}AL_TEvent;
 
-typedef struct
+typedef struct AL_TEventQueue
 {
-  AL_WaitQueue Queue;
-  AL_ListHead List;
+  AL_WaitQueue tEvents;
+  AL_ListHead tList;
   pthread_mutex_t Lock;
-}AL_EventQueue;
+}AL_TEventQueue;
 
-typedef struct
+typedef struct AL_TStartCodeChannel
 {
   AL_THREAD thread;
-  AL_EventQueue queue;
+  AL_TEventQueue queue;
   int32_t fd;
-}StartCodeChannel;
+}AL_TStartCodeChannel;
 
 typedef struct
 {
   AL_IDecSchedulerVtable const* vtable;
-  AL_TDriver* driver;
+  AL_ICommunication* driver;
   char* deviceFile;
 }AL_TDecSchedulerMicroblaze;
 
-static void AL_EventQueue_Init(AL_EventQueue* pEventQueue)
+static bool AL_TEventQueue_Init(AL_TEventQueue* pEventQueue)
 {
-  AL_WaitQueue_Init(&pEventQueue->Queue);
-  AL_ListHeadInit(&pEventQueue->List);
+  AL_WaitQueue_Init(&pEventQueue->tEvents);
+  AL_ListHeadInit(&pEventQueue->tList);
   pthread_mutex_init(&pEventQueue->Lock, NULL);
+
+  return true;
 }
 
-static void AL_EventQueue_Deinit(AL_EventQueue* pEventQueue)
+static void AL_TEventQueue_Deinit(AL_TEventQueue* pEventQueue)
 {
   pthread_mutex_destroy(&pEventQueue->Lock);
-  AL_WaitQueue_Deinit(&pEventQueue->Queue);
+  AL_WaitQueue_Deinit(&pEventQueue->tEvents);
 }
 
-static void AL_EventQueue_Push(AL_EventQueue* pEventQueue, AL_Event* pEvent)
+static void AL_TEventQueue_Push(AL_TEventQueue* pEventQueue, AL_TEvent* pEvent)
 {
   pthread_mutex_lock(&pEventQueue->Lock);
-  AL_ListAddTail(&pEvent->List, &pEventQueue->List);
+  AL_ListAddTail(&pEvent->tList, &pEventQueue->tList);
   pthread_mutex_unlock(&pEventQueue->Lock);
 
-  AL_WakeUp(&pEventQueue->Queue);
+  AL_WakeUp(&pEventQueue->tEvents);
 }
 
 /* for one Reader */
-static void AL_EventQueue_Fetch(AL_EventQueue* EventQueue, AL_Event** pEvent, bool (* isReady)(void*), void* pParam)
+static void AL_TEventQueue_Fetch(AL_TEventQueue* EventQueue, AL_TEvent** pEvent, bool (* isReady)(void*), void* pParam)
 {
-  AL_WaitEvent(&EventQueue->Queue, isReady, pParam);
+  AL_WaitEvent(&EventQueue->tEvents, isReady, pParam);
 
   /* get msg */
   pthread_mutex_lock(&EventQueue->Lock);
-  *pEvent = AL_ListFirstEntry(&EventQueue->List, AL_Event, List);
-  AL_ListDel(&(*pEvent)->List);
+  *pEvent = AL_ListFirstEntry(&EventQueue->tList, AL_TEvent, tList);
+  AL_ListDel(&(*pEvent)->tList);
   pthread_mutex_unlock(&EventQueue->Lock);
 }
 
@@ -141,6 +143,7 @@ void setPictParam(struct al5_params* msg, AL_TDecPicParam* pPictParam)
   static_assert(sizeof(*pPictParam) <= sizeof(msg->opaque), "Driver pict_param struct is too small");
   msg->size = sizeof(*pPictParam);
   Rtos_Memcpy(msg->opaque, pPictParam, msg->size);
+  Rtos_FlushCacheMemory(&msg->opaque, msg->size);
 }
 
 void setPictBufferAddrs(struct al5_params* msg, AL_TDecBufferAddrs* pBufferAddrs)
@@ -148,6 +151,7 @@ void setPictBufferAddrs(struct al5_params* msg, AL_TDecBufferAddrs* pBufferAddrs
   static_assert(sizeof(*pBufferAddrs) <= sizeof(msg->opaque), "Driver pict_buffer_addrs struct is too small");
   msg->size = sizeof(*pBufferAddrs);
   Rtos_Memcpy(msg->opaque, pBufferAddrs, msg->size);
+  Rtos_FlushCacheMemory(&msg->opaque, msg->size);
 }
 
 /* Fill msg with pChParam */
@@ -174,8 +178,8 @@ static void processStatusMsg(Channel const* channel, struct al5_params const* ms
     Rtos_Memcpy(&uFrameID, (uint8_t*)msg->opaque + iOffset, sizeof(uFrameID));
     Rtos_Memcpy(&uParsingID, (uint8_t*)msg->opaque + iOffset + sizeof(uFrameID), sizeof(uParsingID));
 
-    if(channel->endParsingCB.func)
-      channel->endParsingCB.func(channel->endParsingCB.userParam, uFrameID, uParsingID);
+    if(channel->tSchedParams.endParsingCallback.func)
+      channel->tSchedParams.endParsingCallback.func(channel->tSchedParams.endParsingCallback.userParam, uFrameID, uParsingID);
     return;
   }
 
@@ -188,8 +192,8 @@ static void processStatusMsg(Channel const* channel, struct al5_params const* ms
     Rtos_Assert(msg->size >= iOffset + sizeof(status));
     Rtos_Memcpy(&status, (uint8_t*)msg->opaque + iOffset, sizeof(status));
 
-    if(channel->endDecodingCB.func)
-      channel->endDecodingCB.func(channel->endDecodingCB.userParam, &status);
+    if(channel->tSchedParams.endDecodingCallback.func)
+      channel->tSchedParams.endDecodingCallback.func(channel->tSchedParams.endDecodingCallback.userParam, &status);
     return;
   }
   Rtos_Assert(false);
@@ -209,17 +213,20 @@ static void* NotificationThread(void* p)
   {
     ctx.revents = 0;
 
-    AL_EDriverError err = AL_Driver_PostBlockingMessage(channel->driver, channel->fd, AL_POLL_MSG, &ctx);
+    AL_ECommunicationError err = AL_ICommunication_PostBlockingMessage(channel->driver, channel->fd, AL_POLL_MSG, &ctx);
 
-    if(err != DRIVER_SUCCESS)
+    if(err != COMMUNICATION_SUCCESS)
       continue;
 
     if(ctx.revents & AL_POLLIN)
     {
-      err = AL_Driver_PostNonBlockingMessage(channel->driver, channel->fd, AL_MCU_WAIT_FOR_STATUS, &msg);
+      err = AL_ICommunication_PostNonBlockingMessage(channel->driver, channel->fd, AL_MCU_WAIT_FOR_STATUS, &msg);
 
-      if(err == DRIVER_SUCCESS)
+      if(err == COMMUNICATION_SUCCESS)
+      {
+        Rtos_InvalidateCacheMemory(&msg, sizeof(msg));
         processStatusMsg(channel, &msg);
+      }
       else
         Rtos_Log(AL_LOG_ERROR, "Failed to get decode status (error code: %d)\n", err);
     }
@@ -232,34 +239,33 @@ static void* NotificationThread(void* p)
   return NULL;
 }
 
-static void setScStatus(AL_TScStatus* status, struct al5_scstatus const* msg)
+static void setStartCodeStatus(AL_TStartCodeStatus* status, struct al5_scstatus const* msg)
 {
   status->uNumSC = msg->num_sc;
   status->uNumBytes = msg->num_bytes;
 }
 
-static void processScStatusMsg(SCMsg const* pMsg, struct al5_scstatus const* StatusMsg)
+static void processStartCodeStatusMsg(AL_TStartCodeMessage const* pMsg, struct al5_scstatus const* StatusMsg)
 {
-  AL_TScStatus status;
-
-  setScStatus(&status, StatusMsg);
+  AL_TStartCodeStatus status;
+  setStartCodeStatus(&status, StatusMsg);
   pMsg->endStartCodeCB.func(pMsg->endStartCodeCB.userParam, &status);
 }
 
 /* One reader, no race condition */
 static bool isSCReady(void* p)
 {
-  AL_EventQueue* pCtx = p;
+  AL_TEventQueue* pCtx = p;
   pthread_mutex_lock(&pCtx->Lock);
-  bool isReady = !AL_ListEmpty(&pCtx->List);
+  bool isReady = !AL_ListEmpty(&pCtx->tList);
   pthread_mutex_unlock(&pCtx->Lock);
   return isReady;
 }
 
-static void* ScNotificationThread(void* p)
+static void* StartCodeNotificationThread(void* p)
 {
   Rtos_SetCurrentThreadName("dec-scd-it");
-  AL_EventQueue* pEventQueue = (AL_EventQueue*)p;
+  AL_TEventQueue* pEventQueue = (AL_TEventQueue*)p;
   struct al5_scstatus StatusMsg = { 0 };
   Rtos_PollCtx ctx;
   /* Wait for start code events forever in poll */
@@ -268,9 +274,9 @@ static void* ScNotificationThread(void* p)
 
   while(true)
   {
-    AL_Event* pEvent;
-    AL_EventQueue_Fetch(pEventQueue, &pEvent, isSCReady, pEventQueue);
-    SCMsg* pMsg = pEvent->pPriv;
+    AL_TEvent* pEvent;
+    AL_TEventQueue_Fetch(pEventQueue, &pEvent, isSCReady, pEventQueue);
+    AL_TStartCodeMessage* pMsg = pEvent->pPrivate;
     Rtos_Free(pEvent);
 
     if(pMsg->bEnded)
@@ -281,17 +287,20 @@ static void* ScNotificationThread(void* p)
 
     ctx.revents = 0;
 
-    AL_EDriverError err = AL_Driver_PostBlockingMessage(pMsg->driver, pMsg->fd, AL_POLL_MSG, &ctx);
+    AL_ECommunicationError err = AL_ICommunication_PostBlockingMessage(pMsg->driver, pMsg->fd, AL_POLL_MSG, &ctx);
 
-    if(err != DRIVER_SUCCESS)
+    if(err != COMMUNICATION_SUCCESS)
       continue;
 
     if(ctx.revents & AL_POLLIN)
     {
-      err = AL_Driver_PostNonBlockingMessage(pMsg->driver, pMsg->fd, AL_MCU_WAIT_FOR_START_CODE, &StatusMsg);
+      err = AL_ICommunication_PostNonBlockingMessage(pMsg->driver, pMsg->fd, AL_MCU_WAIT_FOR_START_CODE, &StatusMsg);
 
-      if(err == DRIVER_SUCCESS)
-        processScStatusMsg(pMsg, &StatusMsg);
+      if(err == COMMUNICATION_SUCCESS)
+      {
+        Rtos_InvalidateCacheMemory(&StatusMsg, sizeof(StatusMsg));
+        processStartCodeStatusMsg(pMsg, &StatusMsg);
+      }
       else
         Rtos_Log(AL_LOG_ERROR, "Failed to get start code status (error code: %d)\n", err);
     }
@@ -319,33 +328,45 @@ static AL_ERR API_CreateStartCodeChannel(AL_HANDLE* hStartCodeChannel, AL_IDecSc
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
   AL_ERR errorCode = AL_ERROR;
+  AL_TStartCodeChannel* pStartCodeChannel = Rtos_Malloc(sizeof(*pStartCodeChannel));
 
-  StartCodeChannel* scChan = Rtos_Malloc(sizeof(*scChan));
-
-  if(!scChan)
+  if(pStartCodeChannel == NULL)
   {
     errorCode = AL_ERR_NO_MEMORY;
-    goto channel_creation_fail;
+    goto channel_create_fail_alloc;
   }
 
-  scChan->fd = AL_Driver_Open(scheduler->driver, scheduler->deviceFile);
+  pStartCodeChannel->fd = AL_ICommunication_Open(scheduler->driver, scheduler->deviceFile);
 
-  AL_EventQueue_Init(&scChan->queue);
-  scChan->thread = Rtos_CreateThread(&ScNotificationThread, &scChan->queue);
-
-  if(!scChan->thread)
+  if(pStartCodeChannel->fd < 0)
   {
-    perror("Couldn't create thread");
-    goto fail;
+    Rtos_Log(AL_LOG_ERROR, "Failed to open device: %s", scheduler->deviceFile);
+    errorCode = AL_ERR_NO_MEMORY;
+    goto channel_create_fail_open;
   }
 
-  *hStartCodeChannel = (AL_HANDLE)scChan;
+  if(!AL_TEventQueue_Init(&pStartCodeChannel->queue))
+    goto channel_create_fail_event_queue_init;
+
+  pStartCodeChannel->thread = Rtos_CreateThread(&StartCodeNotificationThread, &pStartCodeChannel->queue);
+
+  if(pStartCodeChannel->thread == NULL)
+  {
+    Rtos_Log(AL_LOG_ERROR, "Couldn't create thread");
+    goto channel_create_fail_thread;
+  }
+
+  *hStartCodeChannel = (AL_HANDLE)pStartCodeChannel;
 
   return AL_SUCCESS;
 
-  fail:
-  Rtos_Free(scChan);
-  channel_creation_fail:
+  channel_create_fail_thread:
+  AL_TEventQueue_Deinit(&pStartCodeChannel->queue);
+  channel_create_fail_event_queue_init:
+  AL_ICommunication_Close(scheduler->driver, pStartCodeChannel->fd);
+  channel_create_fail_open:
+  Rtos_Free(pStartCodeChannel);
+  channel_create_fail_alloc:
   *hStartCodeChannel = NULL;
   return errorCode;
 }
@@ -353,27 +374,26 @@ static AL_ERR API_CreateStartCodeChannel(AL_HANDLE* hStartCodeChannel, AL_IDecSc
 static AL_ERR API_DestroyStartCodeChannel(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel)
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
-
   AL_ERR errorCode = AL_ERROR;
-  StartCodeChannel* scChan = (StartCodeChannel*)hStartCodeChannel;
+  AL_TStartCodeChannel* pStartCodeChannel = (AL_TStartCodeChannel*)hStartCodeChannel;
 
   /* if the start code channel doesn't exist, nothing to do, return immediately. */
-  if(!scChan)
+  if(pStartCodeChannel == NULL)
     return AL_SUCCESS;
 
-  AL_EventQueue* pEventQueue = &scChan->queue;
+  AL_TEventQueue* pEventQueue = &pStartCodeChannel->queue;
 
-  AL_Event* pEvent = Rtos_Malloc(sizeof(*pEvent));
+  AL_TEvent* pEvent = Rtos_Malloc(sizeof(*pEvent));
 
-  if(!pEvent)
+  if(pEvent == NULL)
   {
     errorCode = AL_ERR_NO_MEMORY;
     goto fail_event;
   }
 
-  SCMsg* pMsg = Rtos_Malloc(sizeof(*pMsg));
+  AL_TStartCodeMessage* pMsg = Rtos_Malloc(sizeof(*pMsg));
 
-  if(!pMsg)
+  if(pMsg == NULL)
   {
     errorCode = AL_ERR_NO_MEMORY;
     goto fail_msg;
@@ -381,21 +401,21 @@ static AL_ERR API_DestroyStartCodeChannel(AL_IDecScheduler* pScheduler, AL_HANDL
 
   pMsg->bEnded = true;
   pMsg->driver = scheduler->driver;
-  pEvent->pPriv = pMsg;
-  AL_EventQueue_Push(pEventQueue, pEvent);
+  pEvent->pPrivate = pMsg;
+  AL_TEventQueue_Push(pEventQueue, pEvent);
 
-  if(!Rtos_JoinThread(scChan->thread))
+  if(!Rtos_JoinThread(pStartCodeChannel->thread))
     goto fail_join;
 
-  Rtos_DeleteThread(scChan->thread);
-  AL_EventQueue_Deinit(pEventQueue);
-  AL_Driver_Close(scheduler->driver, scChan->fd);
-  Rtos_Free(scChan);
+  Rtos_DeleteThread(pStartCodeChannel->thread);
+  AL_TEventQueue_Deinit(pEventQueue);
+  AL_ICommunication_Close(scheduler->driver, pStartCodeChannel->fd);
+  Rtos_Free(pStartCodeChannel);
 
   return AL_SUCCESS;
 
   fail_join:
-  AL_EventQueue_Deinit(pEventQueue);
+  AL_TEventQueue_Deinit(pEventQueue);
   fail_msg:
   Rtos_Free(pEvent);
   fail_event:
@@ -408,15 +428,15 @@ static AL_ERR API_DestroyChannel(AL_IDecScheduler* pScheduler, AL_HANDLE hChanne
   Channel* pChannel = (Channel*)hChannel;
 
   /* if the channel doesn't exist, nothing to do, return immediately. */
-  if(!pChannel)
+  if(pChannel == NULL)
     return AL_SUCCESS;
 
   pChannel->bBeingDestroyed = true;
   AL_ERR errorCode = AL_ERROR;
 
-  AL_EDriverError const error = AL_Driver_PostBlockingMessage(pChannel->driver, pChannel->fd, AL_MCU_DESTROY_CHANNEL, NULL);
+  AL_ECommunicationError const error = AL_ICommunication_PostBlockingMessage(pChannel->driver, pChannel->fd, AL_MCU_DESTROY_CHANNEL, NULL);
 
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
   {
     Rtos_Log(AL_LOG_ERROR, "Failed to destroy channel (error code: %d)\n", error);
     goto exit;
@@ -428,117 +448,120 @@ static AL_ERR API_DestroyChannel(AL_IDecScheduler* pScheduler, AL_HANDLE hChanne
   errorCode = AL_SUCCESS;
 
   exit:
-  AL_Driver_Close(pChannel->driver, pChannel->fd);
+  AL_ICommunication_Close(pChannel->driver, pChannel->fd);
   Rtos_Free(pChannel);
   return errorCode;
 }
 
-static AL_ERR API_CreateChannel(AL_HANDLE* hChannel, AL_IDecScheduler* pScheduler, AL_TMemDesc* pMDChParams, AL_TDecScheduler_CB_EndParsing endParsingCallback, AL_TDecScheduler_CB_EndDecoding endDecodingCallback)
+static AL_ERR API_CreateChannel(AL_HANDLE* hChannel, AL_IDecScheduler* pScheduler, AL_IDecSchedulerChanParams* pSchedParams)
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
   AL_ERR errorCode = AL_ERROR;
 
   Channel* pChannel = Rtos_Malloc(sizeof(*pChannel));
 
-  if(!pChannel)
+  if(pChannel == NULL)
   {
     errorCode = AL_ERR_NO_MEMORY;
-    goto channel_creation_fail;
+    goto create_channel_fail_alloc;
   }
 
-  pChannel->bBeingDestroyed = false;
-  pChannel->iChannelID = -1;
-  pChannel->endParsingCB = endParsingCallback;
-  pChannel->endDecodingCB = endDecodingCallback;
-  pChannel->driver = scheduler->driver;
-  pChannel->fd = AL_Driver_Open(pChannel->driver, scheduler->deviceFile);
+  pChannel->fd = AL_ICommunication_Open(scheduler->driver, scheduler->deviceFile);
 
   if(pChannel->fd < 0)
   {
     Rtos_Log(AL_LOG_ERROR, "Couldn't open device file %s while creating channel: %s\n", scheduler->deviceFile, strerror(errno));
-    goto fail_open;
+    goto create_channel_fail_open;
   }
 
+  pChannel->driver = scheduler->driver;
+  pChannel->bBeingDestroyed = false;
+  pChannel->iChannelID = -1;
+  pChannel->tSchedParams = *pSchedParams;
+
   struct al5_channel_config msg = { 0 };
-  setChannelMsg(&msg.param, pMDChParams);
+  setChannelMsg(&msg.param, pChannel->tSchedParams.pMDChParams);
+  Rtos_FlushCacheMemory(&msg.param.opaque, msg.param.size);
 
-  AL_EDriverError errdrv = AL_Driver_PostBlockingMessage(pChannel->driver, pChannel->fd, AL_MCU_CONFIG_CHANNEL, &msg);
+  AL_ECommunicationError errdrv = AL_ICommunication_PostBlockingMessage(pChannel->driver, pChannel->fd, AL_MCU_CONFIG_CHANNEL, &msg);
 
-  if(errdrv != DRIVER_SUCCESS)
+  if(errdrv != COMMUNICATION_SUCCESS)
   {
-    if(errdrv == DRIVER_ERROR_NO_MEMORY)
+    if(errdrv == COMMUNICATION_ERROR_NO_MEMORY)
       errorCode = AL_ERR_NO_MEMORY;
 
     /* the ioctl might not have been called at all,
      * so the error_code might no be set. leave it to AL_ERROR in this case */
-    if(errdrv == DRIVER_ERROR_CHANNEL && msg.status.error_code)
+    if(errdrv == COMMUNICATION_ERROR_CHANNEL && msg.status.error_code)
       errorCode = msg.status.error_code;
-    goto fail_open;
+    goto create_channel_fail_post;
   }
 
+  Rtos_InvalidateCacheMemory(&msg, sizeof(msg));
   Rtos_Assert(msg.status.error_code == AL_SUCCESS);
 
   /* Retrieve channel id if it was given to us using the param as an output (debug) */
-  if(msg.param.size == 4)
+  if(msg.param.size == sizeof(pChannel->iChannelID))
     pChannel->iChannelID = msg.param.opaque[0];
 
   pChannel->thread = Rtos_CreateThread(&NotificationThread, pChannel);
 
-  if(!pChannel->thread)
-    goto fail_open;
+  if(pChannel->thread == NULL)
+    goto create_channel_fail_thread;
 
   *hChannel = (AL_HANDLE)pChannel;
   return AL_SUCCESS;
 
-  fail_open:
-
-  if(pChannel->fd >= 0)
-    AL_Driver_Close(pChannel->driver, pChannel->fd);
-
+  create_channel_fail_thread:
+  create_channel_fail_post:
+  AL_ICommunication_Close(pChannel->driver, pChannel->fd);
+  create_channel_fail_open:
   Rtos_Free(pChannel);
-  channel_creation_fail:
+  create_channel_fail_alloc:
   return errorCode;
 }
 
-static void setStartCodeParams(struct al5_params* msg, AL_TScParam* pScParam)
+static void setStartCodeParams(struct al5_params* msg, AL_TStartCodeParam* pStartCodeParam)
 {
-  static_assert(sizeof(*pScParam) <= sizeof(msg->opaque), "Driver sc_param struct is too small");
-  msg->size = sizeof(*pScParam);
-  Rtos_Memcpy(msg->opaque, pScParam, sizeof(*pScParam));
+  static_assert(sizeof(*pStartCodeParam) <= sizeof(msg->opaque), "Driver sc_param struct is too small");
+  msg->size = sizeof(*pStartCodeParam);
+  Rtos_Memcpy(msg->opaque, pStartCodeParam, sizeof(*pStartCodeParam));
+  Rtos_FlushCacheMemory(&msg->opaque, msg->size);
 }
 
-static void setStartCodeAddresses(struct al5_params* msg, AL_TScBufferAddrs* pBufAddrs)
+static void setStartCodeAddresses(struct al5_params* msg, AL_TStartCodeBufferAddrs* pBufAddrs)
 {
   static_assert(sizeof(*pBufAddrs) <= sizeof(msg->opaque), "Driver sc_addresses struct is too small");
   msg->size = sizeof(*pBufAddrs);
   Rtos_Memcpy(msg->opaque, pBufAddrs, sizeof(*pBufAddrs));
+  Rtos_FlushCacheMemory(&msg->opaque, msg->size);
 }
 
-static void setSearchStartCodeMsg(struct al5_search_sc_msg* search_msg, AL_TScParam* pScParam, AL_TScBufferAddrs* pBufAddrs)
+static void setSearchStartCodeMsg(struct al5_search_sc_msg* search_msg, AL_TStartCodeParam* pStartCodeParam, AL_TStartCodeBufferAddrs* pBufAddrs)
 {
-  setStartCodeParams(&search_msg->param, pScParam);
+  setStartCodeParams(&search_msg->param, pStartCodeParam);
   setStartCodeAddresses(&search_msg->buffer_addrs, pBufAddrs);
 }
 
-static void API_SearchSC(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel, AL_TScParam* pScParam, AL_TScBufferAddrs* pBufAddrs, AL_TDecScheduler_CB_EndStartCode endStartCodeCB)
+static void API_SearchSC(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel, AL_TStartCodeParam* pStartCodeParam, AL_TStartCodeBufferAddrs* pBufAddrs, AL_TDecScheduler_CB_EndStartCode endStartCodeCB)
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
-  StartCodeChannel* scChan = (StartCodeChannel*)hStartCodeChannel;
-  AL_EventQueue* pEventQueue = &scChan->queue;
-  AL_Event* pEvent = Rtos_Malloc(sizeof(*pEvent));
+  AL_TStartCodeChannel* pStartCodeChannel = (AL_TStartCodeChannel*)hStartCodeChannel;
+  AL_TEventQueue* pEventQueue = &pStartCodeChannel->queue;
+  AL_TEvent* pEvent = Rtos_Malloc(sizeof(*pEvent));
 
-  if(!pEvent)
+  if(pEvent == NULL)
     goto fail_event;
 
-  SCMsg* pMsg = Rtos_Malloc(sizeof(*pMsg));
+  AL_TStartCodeMessage* pMsg = Rtos_Malloc(sizeof(*pMsg));
 
-  if(!pMsg)
+  if(pMsg == NULL)
     goto fail_msg;
 
   pMsg->bEnded = false;
   pMsg->endStartCodeCB = endStartCodeCB;
   pMsg->driver = scheduler->driver;
-  pMsg->fd = scChan->fd;
+  pMsg->fd = pStartCodeChannel->fd;
 
   if(pMsg->fd < 0)
   {
@@ -547,23 +570,23 @@ static void API_SearchSC(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChann
   }
 
   struct al5_search_sc_msg search_msg = { 0 };
-  setSearchStartCodeMsg(&search_msg, pScParam, pBufAddrs);
+  setSearchStartCodeMsg(&search_msg, pStartCodeParam, pBufAddrs);
 
-  AL_EDriverError error = AL_Driver_PostBlockingMessage(scheduler->driver, pMsg->fd, AL_MCU_SEARCH_START_CODE, &search_msg);
+  AL_ECommunicationError error = AL_ICommunication_PostBlockingMessage(scheduler->driver, pMsg->fd, AL_MCU_SEARCH_START_CODE, &search_msg);
 
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
   {
     Rtos_Log(AL_LOG_ERROR, "Failed to search start code (error code: %d)\n", error);
     goto fail_open;
   }
 
-  pEvent->pPriv = pMsg;
-  AL_EventQueue_Push(pEventQueue, pEvent);
+  pEvent->pPrivate = pMsg;
+  AL_TEventQueue_Push(pEventQueue, pEvent);
 
   return;
 
   fail_open:
-  AL_Driver_Close(pMsg->driver, pMsg->fd);
+  AL_ICommunication_Close(pMsg->driver, pMsg->fd);
   Rtos_Free(pMsg);
   fail_msg:
   Rtos_Free(pEvent);
@@ -575,41 +598,46 @@ static void prepareDecodeMessage(struct al5_decode_msg* msg, AL_TDecPicParam* pP
 {
   setPictParam(&msg->params, pPictParam);
   setPictBufferAddrs(&msg->addresses, pPictAddrs);
-
   msg->slice_param_v = (hSliceParam->uPhysicalAddr & 0x7FFFFFFF) + DCACHE_OFFSET;
+  Rtos_FlushCacheMemory(&msg->slice_param_v, sizeof(msg->slice_param_v));
 }
 
 // TODO return error
-static void API_DecodeOneFrame(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* hSliceParam)
+static void API_DecodeOneFrame(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* hSliceParam)
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
   Channel* chan = (Channel*)hChannel;
+  AL_TDecChanParam* pChanParam = (AL_TDecChanParam*)chan->tSchedParams.pMDChParams->pVirtualAddr;
 
   struct al5_decode_msg msg = { 0 };
-  prepareDecodeMessage(&msg, pPictParam, pPictAddrs, hSliceParam);
-  AL_EDriverError error = AL_Driver_PostBlockingMessage(scheduler->driver, chan->fd, AL_MCU_DECODE_ONE_FRM, &msg);
+  AL_TDecBufferAddrs tBufAddrs;
+  AL_SetBufferAddrs(&tBufAddrs, pPictBuffers, pChanParam);
+  prepareDecodeMessage(&msg, pPictParam, &tBufAddrs, hSliceParam);
+  AL_ECommunicationError error = AL_ICommunication_PostBlockingMessage(scheduler->driver, chan->fd, AL_MCU_DECODE_ONE_FRM, &msg);
 
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
     Rtos_Log(AL_LOG_ERROR, "Failed to decode one frame (error code: %d)\n", error);
 }
 
-static void API_DecodeOneSlice(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* hSliceParam)
+static void API_DecodeOneSlice(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* hSliceParam)
 {
   AL_TDecSchedulerMicroblaze* scheduler = (AL_TDecSchedulerMicroblaze*)pScheduler;
   Channel* chan = (Channel*)hChannel;
+  AL_TDecChanParam* pChanParam = (AL_TDecChanParam*)chan->tSchedParams.pMDChParams->pVirtualAddr;
 
   struct al5_decode_msg msg = { 0 };
-  prepareDecodeMessage(&msg, pPictParam, pPictAddrs, hSliceParam);
+  AL_TDecBufferAddrs tBufAddrs;
+  AL_SetBufferAddrs(&tBufAddrs, pPictBuffers, pChanParam);
+  prepareDecodeMessage(&msg, pPictParam, &tBufAddrs, hSliceParam);
+  AL_ECommunicationError const error = AL_ICommunication_PostBlockingMessage(scheduler->driver, chan->fd, AL_MCU_DECODE_ONE_SLICE, &msg);
 
-  AL_EDriverError const error = AL_Driver_PostBlockingMessage(scheduler->driver, chan->fd, AL_MCU_DECODE_ONE_SLICE, &msg);
-
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
     Rtos_Log(AL_LOG_ERROR, "Failed to decode one slice (error code: %d)\n", error);
 }
 
 static void GetSchedulerCoreInfo(AL_TDecSchedulerMicroblaze const* pThis, AL_TIDecSchedulerCore* pCore)
 {
-  int32_t const fd = AL_Driver_Open(pThis->driver, pThis->deviceFile);
+  int32_t const fd = AL_ICommunication_Open(pThis->driver, pThis->deviceFile);
 
   if(fd < 0)
   {
@@ -620,29 +648,30 @@ static void GetSchedulerCoreInfo(AL_TDecSchedulerMicroblaze const* pThis, AL_TID
   struct al5_params msg;
   AL_EDecSchedulerInfo eInfo = AL_DEC_SCHEDULER_CORE;
   msg.opaque[0] = eInfo;
-  memcpy(&msg.opaque[sizeof(eInfo) / sizeof(*msg.opaque)], pCore, sizeof(*pCore));
+  Rtos_Memcpy(&msg.opaque[sizeof(eInfo) / sizeof(*msg.opaque)], pCore, sizeof(*pCore));
 
   static_assert(sizeof(eInfo) + sizeof(*pCore) <= sizeof(msg.opaque), "Driver core structure struct is too small");
   msg.size = sizeof(eInfo) + sizeof(*pCore);
 
-  AL_EDriverError const error = AL_Driver_PostBlockingMessage(pThis->driver, fd, AL_MCU_GET, &msg);
+  AL_ECommunicationError const error = AL_ICommunication_PostBlockingMessage(pThis->driver, fd, AL_MCU_GET, &msg);
 
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
   {
     Rtos_Log(AL_LOG_ERROR, "Failed to get parameter '%s', (error code: '%d')\n", ToStringIDecSchedulerInfo(AL_IDECSCHEDULER_CORE), error);
-    AL_Driver_Close(pThis->driver, fd);
+    AL_ICommunication_Close(pThis->driver, fd);
     return;
   }
 
-  memcpy(pCore, &msg.opaque[1], sizeof(*pCore));
+  Rtos_InvalidateCacheMemory(&msg.opaque[1], sizeof(*pCore));
+  Rtos_Memcpy(pCore, &msg.opaque[1], sizeof(*pCore));
 
-  AL_Driver_Close(pThis->driver, fd);
+  AL_ICommunication_Close(pThis->driver, fd);
 }
 
 /******************************************************************************/
 static void GetSchedulerVersion(AL_TDecSchedulerMicroblaze const* pThis, AL_TIDecSchedulerVersion* pVersion)
 {
-  int32_t const fd = AL_Driver_Open(pThis->driver, pThis->deviceFile);
+  int32_t const fd = AL_ICommunication_Open(pThis->driver, pThis->deviceFile);
 
   if(fd < 0)
   {
@@ -653,23 +682,24 @@ static void GetSchedulerVersion(AL_TDecSchedulerMicroblaze const* pThis, AL_TIDe
   struct al5_params msg;
   AL_EDecSchedulerInfo eInfo = AL_DEC_SCHEDULER_VERSION;
   msg.opaque[0] = eInfo;
-  memcpy(&msg.opaque[sizeof(eInfo) / sizeof(*msg.opaque)], pVersion, sizeof(*pVersion));
+  Rtos_Memcpy(&msg.opaque[sizeof(eInfo) / sizeof(*msg.opaque)], pVersion, sizeof(*pVersion));
 
   static_assert(sizeof(eInfo) + sizeof(*pVersion) <= sizeof(msg.opaque), "Driver version structure struct is too small");
   msg.size = sizeof(eInfo) + sizeof(*pVersion);
 
-  AL_EDriverError const error = AL_Driver_PostBlockingMessage(pThis->driver, fd, AL_MCU_GET, &msg);
+  AL_ECommunicationError const error = AL_ICommunication_PostBlockingMessage(pThis->driver, fd, AL_MCU_GET, &msg);
 
-  if(error != DRIVER_SUCCESS)
+  if(error != COMMUNICATION_SUCCESS)
   {
     Rtos_Log(AL_LOG_ERROR, "Failed to get parameter '%s', (error code: '%d')\n", ToStringIDecSchedulerInfo(AL_IDECSCHEDULER_VERSION), error);
-    AL_Driver_Close(pThis->driver, fd);
+    AL_ICommunication_Close(pThis->driver, fd);
     return;
   }
 
-  memcpy(pVersion, &msg.opaque[1], sizeof(*pVersion));
+  Rtos_InvalidateCacheMemory(&msg.opaque[1], sizeof(*pVersion));
+  Rtos_Memcpy(pVersion, &msg.opaque[1], sizeof(*pVersion));
 
-  AL_Driver_Close(pThis->driver, fd);
+  AL_ICommunication_Close(pThis->driver, fd);
 }
 
 static void API_Get(AL_IDecScheduler const* pScheduler, AL_EIDecSchedulerInfo info, void* pParam)
@@ -719,7 +749,7 @@ static void API_InternalSet(AL_IDecScheduler* pScheduler, AL_EIDecSchedulerInter
   }
 }
 
-static const AL_IDecSchedulerVtable DecSchedulerMcuVtable =
+static AL_IDecSchedulerVtable const DecSchedulerMcuVtable =
 {
   API_Destroy,
   API_CreateStartCodeChannel,
@@ -738,23 +768,29 @@ static const AL_IDecSchedulerVtable DecSchedulerMcuVtable =
  * With several channels it would be unacceptable to let any reinit the scheduler.
  * We init the scheduler once in the firmware at startup. */
 
-AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_TDriver* driver, char const* deviceFile)
+AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_ICommunication* driver, char const* deviceFile)
 {
-  AL_TDecSchedulerMicroblaze* scheduler = Rtos_Malloc(sizeof(*scheduler));
-
-  if(!scheduler)
+  if(driver == NULL)
     return NULL;
 
-  scheduler->vtable = &DecSchedulerMcuVtable;
-  scheduler->driver = driver;
+  if(deviceFile == NULL)
+    return NULL;
+
+  AL_TDecSchedulerMicroblaze* scheduler = Rtos_Malloc(sizeof(*scheduler));
+
+  if(scheduler == NULL)
+    return NULL;
 
   scheduler->deviceFile = Rtos_Malloc((strlen(deviceFile) + 1) * sizeof(char));
 
-  if(!scheduler->deviceFile)
+  if(scheduler->deviceFile == NULL)
   {
     Rtos_Free(scheduler);
     return NULL;
   }
+
+  scheduler->vtable = &DecSchedulerMcuVtable;
+  scheduler->driver = driver;
 
   strcpy(scheduler->deviceFile, deviceFile);
 
@@ -763,7 +799,7 @@ AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_TDriver* driver, char const* devi
 
 #else
 
-AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_TDriver* driver, char const* deviceFile)
+AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_ICommunication* driver, char const* deviceFile)
 {
   (void)driver, (void)deviceFile;
   return NULL;

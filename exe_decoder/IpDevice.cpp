@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "IpDevice.hpp"
@@ -21,7 +21,7 @@ extern "C"
 #include "lib_common/Allocator.h"
 #include "lib_rtos/utils.h"
 #include "lib_fpga/DmaAlloc.h"
-#include "lib_log/LoggerInterface.h"
+#include "lib_log/I_Logger.h"
 #include "lib_log/TimerSoftware.h"
 }
 
@@ -30,6 +30,7 @@ using namespace std;
 extern "C"
 {
 #include "lib_decode/DecSchedulerMcu.h"
+#include "lib_common/LinuxDriverCommunication.h"
 }
 
 std::shared_ptr<AL_TAllocator> CreateProxyAllocator(char const*)
@@ -38,17 +39,17 @@ std::shared_ptr<AL_TAllocator> CreateProxyAllocator(char const*)
   return nullptr;
 }
 
-void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
+void CIpDevice::ConfigureMcu(AL_ICommunication* driver, bool useProxy)
 {
   if(useProxy)
-    m_pAllocator = CreateProxyAllocator(this->m_tSelectedDevice.c_str());
+    m_pAllocator = CreateProxyAllocator(m_tSelectedDevices.back().c_str());
   else
-    m_pAllocator = CreateBoardAllocator(this->m_tSelectedDevice.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
+    m_pAllocator = CreateBoardAllocator(m_tSelectedDevices.back().c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
 
   if(!m_pAllocator)
     throw runtime_error("Can't open DMA allocator");
 
-  m_pScheduler = AL_DecSchedulerMcu_Create(driver, this->m_tSelectedDevice.c_str());
+  m_pScheduler = AL_DecSchedulerMcu_Create(driver, m_tSelectedDevices.back().c_str());
 
   if(!m_pScheduler)
     throw runtime_error("Failed to create MCU scheduler");
@@ -73,7 +74,7 @@ CIpDevice::~CIpDevice(void)
 #endif
 #include <cstring>
 
-static int32_t CountIPDevices(void)
+static uint32_t CountIPDevices(void)
 {
   static const char* decDevice = "allegroDecodeIP";
 
@@ -102,10 +103,10 @@ static int32_t CountIPDevices(void)
 
 std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
 {
-  std::string best_device;
-  int32_t selected_resources = m_bSelectDeviceWithLowestAvailableResources ? INT32_MAX : -1;
+  std::string selectedDevice;
+  int32_t iSelectedResources = m_bSelectDeviceWithLowestAvailableResources ? INT32_MAX : -1;
 
-  int32_t nDeviceIndex = 0;
+  uint32_t nDeviceIndex = 0;
 
   for(auto const& device : tDevices)
   {
@@ -117,32 +118,32 @@ std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
       nDeviceIndex++;
       continue;
     }
-    AL_IDecScheduler* scheduler = AL_DecSchedulerMcu_Create(AL_GetHardwareDriver(), device.c_str());
+    AL_IDecScheduler* scheduler = AL_DecSchedulerMcu_Create(AL_GetLinuxDriverCommunication(), device.c_str());
 
     if(scheduler == nullptr)
       throw runtime_error(string("Can't create MCU Scheduler: ") + device);
 
-    int32_t total_resources = 0;
+    int32_t iSchedulerResources = 0;
     AL_TIDecSchedulerCore tCore;
     AL_IDecScheduler_Get(scheduler, AL_IDECSCHEDULER_CORE, &tCore);
 
     for(int32_t iCore = 0; iCore < AL_DEC_NUM_CORES; iCore++)
-      total_resources += tCore.iVideoResource[iCore];
+      iSchedulerResources += tCore.iVideoResource[iCore];
 
     if(!m_bSelectDeviceWithLowestAvailableResources)
     {
-      if(total_resources >= selected_resources)
+      if(iSchedulerResources >= iSelectedResources)
       {
-        selected_resources = total_resources;
-        best_device = device;
+        iSelectedResources = iSchedulerResources;
+        selectedDevice = device;
       }
     }
     else
     {
-      if(total_resources <= selected_resources)
+      if(iSchedulerResources <= iSelectedResources)
       {
-        selected_resources = total_resources;
-        best_device = device;
+        iSelectedResources = iSchedulerResources;
+        selectedDevice = device;
       }
     }
 
@@ -150,10 +151,10 @@ std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
     AL_IDecScheduler_Destroy(scheduler);
   }
 
-  if(best_device.empty())
+  if(selectedDevice.empty())
     throw runtime_error("Something wrong happened!");
 
-  return best_device;
+  return selectedDevice;
 }
 
 bool CIpDevice::IsDeviceFailed(std::string const& device)
@@ -163,25 +164,27 @@ bool CIpDevice::IsDeviceFailed(std::string const& device)
 
 void CIpDevice::SelectNextDevice(void)
 {
-  m_nDevices++;
+  if(m_tSelectedDevices.size() >= m_numDevices)
+    throw runtime_error("All devices have been taken. Cannot select another one");
 
   cout << string("Checking with the next available IpDevice") << endl;
-  this->m_tSelectedDevice = SelectMcuDevice(m_tDevices);
+  std::string selectedDevice = SelectMcuDevice(m_tDevices);
 
-  if(!this->m_tSelectedDevice.empty())
-    ConfigureMcu(AL_GetHardwareDriver(), false);
+  if(selectedDevice.empty())
+    return;
 
-  m_SelectedDevices[m_nDevices] = this->m_tSelectedDevice;
+  m_tSelectedDevices.push_back(selectedDevice);
+  ConfigureMcu(AL_GetLinuxDriverCommunication(), false);
 }
 
 bool CIpDevice::HandleDeviceFailure(void)
 {
   bool bCheckNextDevice = false;
 
-  cout << endl << string("Unavailable Resource on: ") << m_SelectedDevices[m_nDevices] << endl;
-  m_FailedDevices.insert(m_SelectedDevices[m_nDevices]);
+  cout << endl << string("Unavailable Resource on: ") << m_tSelectedDevices.back() << endl;
+  m_FailedDevices.insert(m_tSelectedDevices.back());
 
-  if(m_nDevices < m_numDevices - 1)
+  if(m_tSelectedDevices.size() < m_numDevices - 1)
   {
     bCheckNextDevice = true;
   }
@@ -189,7 +192,7 @@ bool CIpDevice::HandleDeviceFailure(void)
   {
     cout << "All devices failed";
 
-    for(int32_t i = 0; i < m_numDevices; i++)
+    for(uint32_t i = 0; i < m_numDevices; i++)
     {
       cout << " - DeviceIP" << i;
     }
@@ -210,9 +213,8 @@ CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, st
   {
     m_numDevices = CountIPDevices();
     m_bSelectDeviceWithLowestAvailableResources = param.bSelectDeviceWithLowestAvailableResources;
-    this->m_tSelectedDevice = SelectMcuDevice(m_tDevices);
-    m_SelectedDevices[m_nDevices] = this->m_tSelectedDevice;
-    ConfigureMcu(AL_GetHardwareDriver(), false);
+    this->m_tSelectedDevices.insert(this->m_tSelectedDevices.begin(), SelectMcuDevice(m_tDevices));
+    ConfigureMcu(AL_GetLinuxDriverCommunication(), false);
     return;
   }
 

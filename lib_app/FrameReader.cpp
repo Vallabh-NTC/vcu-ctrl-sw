@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_app/FrameReader.hpp"
@@ -18,9 +18,9 @@ size_t FrameReader::GetFileSize(void)
   return zSize;
 }
 
-int32_t FrameReader::GotoNextPicture(int32_t iFileFrameRate, int32_t iEncFrameRate, int32_t iEncPictCount, int32_t iFilePictCount)
+AL_64S FrameReader::GotoNextPicture(int32_t iFileFrameRate, int32_t iEncFrameRate, AL_64S iEncPictCount, AL_64S iFilePictCount)
 {
-  const int32_t iMove = ((iEncPictCount * iFileFrameRate) / iEncFrameRate) - iFilePictCount;
+  const AL_64S iMove = ((iEncPictCount * iFileFrameRate) / iEncFrameRate) - iFilePictCount;
 
   if(iMove)
     this->SeekRelative(iMove);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <iostream>
@@ -38,7 +38,9 @@ void UnCompFrameWriter::WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop, AL_EPi
   AL_EFbStorageMode currentStorageMode = AL_GetStorageMode(m_tFourCC);
 
   if(currentStorageMode != m_eStorageMode)
-    throw std::runtime_error("Incompatible Storage Format.");
+    throw std::runtime_error("The output buffer storage mode (" +
+                             std::string(StorageModeToString(currentStorageMode)) + ") differs from the frame writer storage mode (" +
+                             std::string(StorageModeToString(m_eStorageMode)) + ")");
 
   m_tPicDim = AL_PixMapBuffer_GetDimension(pBuf);
 

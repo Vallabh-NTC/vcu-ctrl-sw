@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <climits>
@@ -160,7 +160,7 @@ void SetDefaults(ConfigFile& cfg)
   cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
   cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
   cfg.RunInfo.bLoop = false;
-  cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
+  cfg.RunInfo.iMaxPict = INT64_MAX; // ALL
   cfg.RunInfo.iFirstPict = 0;
   cfg.RunInfo.iScnChgLookAhead = 3;
   cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
@@ -644,7 +644,9 @@ unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverte
     throw runtime_error("Couldn't allocate source conversion buffer");
 
   // ************* Allocate the YUV converter *************
-  TFrameInfo tSrcFrameInfo = { tSrcConverterParams.tDim, tSrcConverterParams.tSrcPicFmt.uBitDepth, tSrcConverterParams.tSrcPicFmt.eChromaMode };
+  TFrameInfo tSrcFrameInfo {
+    tSrcConverterParams.tDim, tSrcConverterParams.tSrcPicFmt.uBitDepth, tSrcConverterParams.tSrcPicFmt.eChromaMode
+  };
   (void)tSrcFrameInfo;
 
   switch(tSrcConverterParams.eSrcFormat)
@@ -671,12 +673,12 @@ static int32_t ComputeYPitch(int32_t iWidth, const AL_TPicFormat& tPicFormat)
   return iPitch;
 }
 
-static bool isLastPict(int32_t iPictCount, int32_t iMaxPict)
+static bool isLastPict(AL_64S iPictCount, AL_64S iMaxPict)
 {
   return (iPictCount >= iMaxPict) && (iMaxPict != -1);
 }
 
-static shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount, unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
+static shared_ptr<AL_TBuffer> GetSrcFrame(AL_64S& iReadCount, AL_64S iPictCount, unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
 {
   shared_ptr<AL_TBuffer> frame;
 
@@ -716,7 +718,9 @@ static bool InitQpBufPool(BufPool& pool, AL_TEncSettings& Settings, AL_TEncChanP
   if(!AL_IS_QP_TABLE_REQUIRED(Settings.eQpTableMode))
     return true;
 
-  AL_TDimension tDim = { tChParam.uEncWidth, tChParam.uEncHeight };
+  AL_TDimension tDim {
+    tChParam.uEncWidth, tChParam.uEncHeight
+  };
   return pool.Init(pAllocator, frameBuffersCount, AL_GetAllocSizeEP2(tDim, static_cast<AL_ECodec>(AL_GET_CODEC(tChParam.eProfile)), tChParam.uLog2MaxCuSize), nullptr, "qp-ext");
 }
 
@@ -792,7 +796,9 @@ static bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t 
 
   int32_t numStreams;
 
-  AL_TDimension dim = { Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight };
+  AL_TDimension dim {
+    Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight
+  };
   uint64_t streamSize = iForcedStreamBufferSize;
 
   if(streamSize == 0)
@@ -883,7 +889,7 @@ struct LayerResources
 
   bool SendInput(ConfigFile& cfg, IEncoderSink* pEncoderSink, void* pTraceHook);
 
-  bool sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount, int& iReadCount);
+  bool sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, AL_64S& iPictCount, AL_64S& iReadCount);
 
   unique_ptr<FrameReader> InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, AL_TYUVFileInfo& FileInfo);
 
@@ -901,8 +907,8 @@ struct LayerResources
   vector<uint8_t> RecYuvBuffer;
   unique_ptr<IFrameSink> frameWriter;
 
-  int32_t iPictCount = 0;
-  int32_t iReadCount = 0;
+  AL_64S iPictCount = 0;
+  AL_64S iReadCount = 0;
 
   int32_t iLayerID = 0;
   int32_t iInputIdx = 0;
@@ -930,7 +936,9 @@ void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLa
   if(!InitStreamBufPool(StreamBufPool, Settings, iLayerID, tEncInfo.uNumCore, cfg.iForceStreamBufSize, pAllocator))
     throw std::runtime_error("Error creating stream buffer pool");
 
-  AL_TDimension tDim = { Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight };
+  AL_TDimension tDim {
+    Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight
+  };
 
   bool bUsePictureMeta = false;
   bUsePictureMeta |= cfg.RunInfo.printPictureType;
@@ -1000,7 +1008,9 @@ void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLa
   if(IsConversionNeeded(tSrcConverterParams))
     pSrcConv = AllocateSrcConverter(tSrcConverterParams, SrcYuv);
 
-  TFrameInfo tSrcFrameInfo = { tSrcConverterParams.tDim, tSrcConverterParams.tSrcPicFmt.uBitDepth, tSrcConverterParams.tSrcPicFmt.eChromaMode };
+  TFrameInfo tSrcFrameInfo {
+    tSrcConverterParams.tDim, tSrcConverterParams.tSrcPicFmt.uBitDepth, tSrcConverterParams.tSrcPicFmt.eChromaMode
+  };
 
   // --------------------------------------------------------------------------------
   // Source Buffers
@@ -1070,7 +1080,9 @@ void LayerResources::OpenEncoderInput(ConfigFile& cfg)
   if(iInputIdx >= static_cast<int>(layerInputs.size()))
     throw std::runtime_error("Invalid source input index!");
 
-  AL_TDimension tInputDim = { layerInputs[iInputIdx].FileInfo.PictWidth, layerInputs[iInputIdx].FileInfo.PictHeight };
+  AL_TDimension tInputDim {
+    layerInputs[iInputIdx].FileInfo.PictWidth, layerInputs[iInputIdx].FileInfo.PictHeight
+  };
   bool bResChange = (tInputDim.iWidth != AL_GetSrcWidth(cfg.Settings.tChParam[iLayerID])) || (tInputDim.iHeight != AL_GetSrcHeight(cfg.Settings.tChParam[iLayerID]));
 
   if(bResChange)
@@ -1094,15 +1106,15 @@ void LayerResources::ChangeEncoderInput(ConfigFile& cfg, int32_t iInputIdx)
   OpenEncoderInput(cfg);
 }
 
-bool LayerResources::SendInput(ConfigFile& cfg, IEncoderSink* pEncoderSink, void* pTraceHooker)
+bool LayerResources::SendInput(ConfigFile& cfg, IEncoderSink* pEncoderSink, void* pTraceHook)
 {
-  (void)pTraceHooker;
+  (void)pTraceHook;
   pEncoderSink->PreprocessFrame();
 
   return sendInputFileTo(frameReader, SrcBufPool, SrcYuv.get(), cfg, layerInputs[iInputIdx].FileInfo, pSrcConv.get(), pEncoderSink, iPictCount, iReadCount);
 }
 
-bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount, int& iReadCount)
+bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, AL_64S& iPictCount, AL_64S& iReadCount)
 {
   if(AL_IS_ERROR_CODE(pEncoderSink->GetLastError()))
   {
@@ -1230,7 +1242,7 @@ void SafeChannelMain(ConfigFile& cfg, CIpDevice* pIpDevice, CIpDeviceParam& para
 
   if(RunInfo.rateCtrlStat != AL_RATECTRL_STAT_MODE_NONE && !RunInfo.rateCtrlMetaPath.empty())
   {
-    std::unique_ptr<IFrameSink> rateCtrlMetaSink(createRateCtrlMetaSink(RunInfo.rateCtrlMetaPath));
+    std::unique_ptr<IFrameSink> rateCtrlMetaSink(createRateCtrlMetaSink(RunInfo.rateCtrlMetaPath, AL_GET_CODEC(cfg.Settings.tChParam[0].eProfile)));
     multisink->addSink(rateCtrlMetaSink);
   }
 

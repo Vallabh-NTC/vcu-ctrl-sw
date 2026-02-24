@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -18,7 +18,7 @@ extern "C"
 /*****************************************************************************/
 typedef struct AL_TAllocator AL_TAllocator;
 typedef struct AL_TIpCtrl AL_TIpCtrl;
-typedef struct AL_TDriver AL_TDriver;
+typedef struct AL_ICommunication AL_ICommunication;
 
 /*****************************************************************************/
 struct CIpDeviceParam

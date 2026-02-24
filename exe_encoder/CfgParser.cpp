@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "CfgParser.hpp"
@@ -166,7 +166,7 @@ vector<ArithInfo<int>> widthInfo {
     filterCodecs({ Codec::Hevc, Codec::Vvc }), 256, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
   },
   {
-    aomCodecs(), 128, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
+    aomCodecs(), 136, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
   },
   {
     isOnlyCodec(Codec::Jpeg), 16, AL_ENC_CORE_MAX_WIDTH_JPEG
@@ -220,9 +220,7 @@ static void populateInputSection(ConfigParser& parser, ConfigFile& cfg)
     },
     { filterCodecs({ Codec::Hevc, Codec::Vvc }), "[256; 3840]", {}
     },
-    { aomCodecs(), "[128; 3968]", {}
-    },
-    { isOnlyCodec(Codec::Jpeg), "[16; 16368]", {}
+    { aomCodecs(), "[136; 3968]", {}
     },
   });
   parser.addCustom(curSection, "CropHeight", [&](std::deque<Token>& tokens)
@@ -235,8 +233,6 @@ static void populateInputSection(ConfigParser& parser, ConfigFile& cfg)
     },
     { filterCodecs({ Codec::Hevc, Codec::Vp9, Codec::Av1, Codec::Vvc }), "[128; 3968]", {}
     },
-    { isOnlyCodec(Codec::Jpeg), "[2; 16382]", {}
-    },
   });
 
   stringstream sCropAlignX, sCropAlignY;
@@ -247,12 +243,10 @@ static void populateInputSection(ConfigParser& parser, ConfigFile& cfg)
     { isOnlyCodec(Codec::Avc), 0, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH - 80 },
     { filterCodecs({ Codec::Hevc, Codec::Vvc }), 0, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH - 256 },
     { aomCodecs(), 0, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH - 128 },
-    { isOnlyCodec(Codec::Jpeg), 0, AL_ENC_CORE_MAX_WIDTH_JPEG - 16 },
   });
   parser.addArith(curSection, "CropPosY", cfg.Settings.tChParam[0].uSrcCropPosY, "Ordinate of crop window first sample in pixels, and shall be multiple of " + sCropAlignX.str(), {
     { isOnlyCodec(Codec::Avc), 96, 4096 - 96 },
     { filterCodecs({ Codec::Hevc, Codec::Vp9, Codec::Av1, Codec::Vvc }), 128, 4096 - 128 },
-    { isOnlyCodec(Codec::Jpeg), 2, 16384 - 2 },
   });
 
 }
@@ -287,7 +281,7 @@ static void populateOutputSection(ConfigParser& parser, ConfigFile& cfg)
   parser.addArith(curSection, "CropWidth", cfg.Settings.tChParam[0].uOutputCropWidth, "Width of the output crop region. This crop information will be added to the stream header and will be applied by the decoder", {
     { isOnlyCodec(Codec::Avc), 80, 4016 },
     { filterCodecs({ Codec::Hevc, Codec::Vvc }), 256, 3840 },
-    { aomCodecs(), 128, 3968 },
+    { aomCodecs(), 136, 3968 },
     { isOnlyCodec(Codec::Jpeg), 16, 16368 },
   });
   parser.addArith(curSection, "CropHeight", cfg.Settings.tChParam[0].uOutputCropHeight, "Height of the output crop region. This crop information will be added to the stream header and will be applied by the decoder", {
@@ -648,8 +642,12 @@ static void populateProfileAndLevel(ConfigParser& parser, ConfigFile& cfg, Secti
   profiles["XAVC_LONG_GOP_HIGH_MXF"] = { AL_PROFILE_XAVC_LONG_GOP_HIGH_MXF, "See AVC/H.264 specification", isOnlyCodec(Codec::Avc) };
   profiles["XAVC_LONG_GOP_HIGH_422_MXF"] = { AL_PROFILE_XAVC_LONG_GOP_HIGH_422_MXF, "See AVC/H.264 specification", isOnlyCodec(Codec::Avc) };
   parser.addEnum(curSection, "Profile", cfg.Settings.tChParam[0].eProfile, profiles, "Specifies the profile to which the bitstream conforms");
-  std::vector<double> levelAvc = { 0.9, 1.0, 1.1, 1.2, 1.3, 2.0, 2.1, 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2, 6.0, 6.1, 6.2 };
-  std::vector<double> levelHevc = { 1.0, 2.0, 2.1, 3.0, 3.1, 4.0, 4.1, 5.0, 5.1, 5.2, 6.0, 6.1, 6.2 };
+  std::vector<double> levelAvc {
+    0.9, 1.0, 1.1, 1.2, 1.3, 2.0, 2.1, 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2, 6.0, 6.1, 6.2
+  };
+  std::vector<double> levelHevc {
+    1.0, 2.0, 2.1, 3.0, 3.1, 4.0, 4.1, 5.0, 5.1, 5.2, 6.0, 6.1, 6.2
+  };
   parser.addArithFuncList<decltype(cfg.Settings.tChParam[0].uLevel), double>(curSection, "Level", cfg.Settings.tChParam[0].uLevel, [](double value)
   {
     return decltype(cfg.Settings.tChParam[0].uLevel)((value + 0.01f) * 10);
@@ -935,6 +933,7 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
   parser.addEnum(curSection, "EntropyMode", cfg.Settings.tChParam[0].eEntropyMode, entropymodes, "Selects the entropy coding mode");
   std::vector<int> bitDepthValues = { 8 };
   bitDepthValues.push_back(10);
+
   parser.addCustom(curSection, "BitDepth", [&](std::deque<Token>& tokens)
   {
     auto bitdepth = parseArithmetic<int>(tokens);
@@ -942,7 +941,7 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
   }, [&]() {
     return std::to_string(AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat));
   }, "Number of bits used to encode one pixel", { ParameterType::String }, toCallbackInfo(std::vector<ArithInfoList<int>> {
-    { aomituCodecs(), bitDepthValues },
+    { filterCodecs({ Codec::Vp9, Codec::Av1, Codec::Hevc, Codec::Avc }), bitDepthValues },
   }, 0));
 
   populateScalingListOptions(parser, cfg, temp, curSection);
@@ -1442,7 +1441,7 @@ static bool ParseScalingListFile(const string& sSLFileName, AL_TEncSettings& Set
   ::memset(Settings.ScalingList, -1, sizeof(Settings.ScalingList));
   ::memset(Settings.DcCoeff, -1, sizeof(Settings.DcCoeff));
 
-  for(;;)
+  while(true)
   {
     string sLine;
     getline(SLFile, sLine);
@@ -1762,6 +1761,12 @@ void CfgParser::PrintConfigFileUsage(ConfigFile cfg)
         createDescriptionChunks(chunks, n);
       }
 
+      for(auto const& warning: identifier_.second.warnings)
+      {
+        auto n = "Warning: " + warning;
+        createDescriptionChunks(chunks, n);
+      }
+
       for(auto it = identifier_.second.seealso.cbegin(); it != identifier_.second.seealso.cend(); ++it)
       {
         string seealso {
@@ -1851,6 +1856,13 @@ void CfgParser::PrintConfigFileUsageJson(ConfigFile cfg)
         jsonNotesArray.PushBackValue(note);
 
       jsonObject.AddValue("notes", jsonNotesArray);
+
+      TJsonValue jsonWarningsArray(TJsonValue::JSON_VALUE_ARRAY);
+
+      for(auto const& warning: identifier_.second.warnings)
+        jsonWarningsArray.PushBackValue(warning);
+
+      jsonObject.AddValue("warnings", jsonWarningsArray);
 
       TJsonValue jsonSeelAlsoArray(TJsonValue::JSON_VALUE_ARRAY);
 

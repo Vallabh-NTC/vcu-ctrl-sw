@@ -1,50 +1,37 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
+#include "lib_common/SeiInternal.h"
 #include "lib_common/BufferSeiMeta.h"
 #include "lib_common_dec/RbspParser.h"
 #include "lib_common_dec/DecCallbacks.h"
 #include "Aup.h"
 
-/* COMMON SEI PAYLOAD TYPES */
+/*****************************************************************************/
 typedef enum
 {
-  SEI_PTYPE_BUFFERING_PERIOD = 0,
-  SEI_PTYPE_PIC_TIMING = 1,
-  SEI_PTYPE_USER_DATA_REGISTERED = 4,
-  SEI_PTYPE_USER_DATA_UNREGISTERED = 5,
-  SEI_PTYPE_RECOVERY_POINT = 6,
-  SEI_PTYPE_ACTIVE_PARAMETER_SETS = 129,
-  SEI_PTYPE_MASTERING_DISPLAY_COLOUR_VOLUME = 137,
-  SEI_PTYPE_CONTENT_LIGHT_LEVEL = 144,
-  SEI_PTYPE_ALTERNATIVE_TRANSFER_CHARACTERISTICS = 147
-}AL_ESeiPayloadType;
+  AL_SEI_PARSE_RESULT_UNKNOWN_SEI,
+  AL_SEI_PARSE_RESULT_PARSED,
+  AL_SEI_PARSE_RESULT_PARSING_ERROR,
+}AL_ESeiParseResult;
 
-/* COMMON USER DATA REGISTERED SEI TYPES */
-typedef enum
+typedef AL_ESeiParseResult (* AL_PFN_ParseOneSei)(AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser);
+
+typedef struct AL_TSeiParserCtx
 {
-  AL_UDR_SEI_UNKNOWN,
-  AL_UDR_SEI_ST2094_10,
-  AL_UDR_SEI_ST2094_40,
-}AL_EUserDataRegisterSEIType;
+  AL_TAup* pOutputAup;
+  AL_TSeiMetaData* pOutputMeta;
+  AL_CB_ParsedSei* pSeiParsedCallback;
+  AL_PFN_ParseOneSei pfnCustomSeiParsing;
+}AL_TSeiParserCtx;
 
 /*****************************************************************************/
-typedef struct
-{
-  AL_TAup* pIAup;
-  bool bIsPrefix;
-  AL_CB_ParsedSei* cb;
-  AL_TSeiMetaData* pMeta;
-}SeiParserParam;
-
-typedef struct
-{
-  bool (* func)(SeiParserParam* pParam, AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, int32_t iPayloadSize, bool* bCanSendToUser, bool* bParsed);
-  SeiParserParam* pParam;
-}SeiParserCB;
+void AL_SeiParser_Init(AL_TSeiParserCtx* pCtx, AL_TAup* pOutputAup, AL_TSeiMetaData* pOutputMeta, AL_CB_ParsedSei* pSeiParsedCallback);
 
 /*****************************************************************************/
-void sei_get_uuid_iso_iec_11578(AL_TRbspParser* pRP, uint8_t* uuid);
-bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB);
+void AL_SeiParser_AddCustomSeiParsing(AL_TSeiParserCtx* pCtx, AL_PFN_ParseOneSei pfnCustomSeiParsing);
+
+/*****************************************************************************/
+bool AL_SeiParser_Parse(AL_TSeiParserCtx* pCtx, AL_TRbspParser* pRP, bool bIsPrefix);

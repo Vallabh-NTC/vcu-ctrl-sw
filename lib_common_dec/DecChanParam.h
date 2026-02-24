@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /*****************************************************************************
@@ -36,6 +36,7 @@ typedef struct AL_TDecChannelParam
   bool bCallDecodeCallbackAtStart; /*< LLP2: this only makes sense with special support for hw synchro */
   AL_EFbStorageMode eFBStorageMode;
   AL_ECodec eCodec;
+
   AL_EChromaMode eMaxChromaMode;
   int32_t iMaxSlices;
   int32_t iMaxTiles;

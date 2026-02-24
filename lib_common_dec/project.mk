@@ -6,7 +6,8 @@ LIB_COMMON_DEC_SRC:=\
   lib_common_dec/IpDecFourCC.c\
   lib_common_dec/StreamSettings.c\
   lib_common_dec/DecOutputSettings.c\
-  lib_common_dec/DecHwScalingList.c
+  lib_common_dec/DecHwScalingList.c\
+	lib_common_dec/BufPool.c
 
 ifneq ($(ENABLE_DEC_SW_HIGH_DYNAMIC_RANGE),0)
   LIB_COMMON_DEC_SRC+=lib_common_dec/HDRMeta.c

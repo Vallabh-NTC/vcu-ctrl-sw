@@ -53,9 +53,11 @@ ifneq ($(MAKECMDGOALS), clean)
   ifeq ($(wildcard include/config.h),)
     $(error config.h does not exist, cannot compile)
   endif
-
   include config.mk
+else
+  -include config.mk
 endif
+
 
 -include delivery.mk
 
@@ -85,12 +87,10 @@ ifneq ($(BUILD_LIB_A2P), 0)
 endif
 
 
+
 -include lib_app/project.mk #lib_common, lib_log and lib_fbc_standalone dependency
 
 
-
-# For now running tests from make needs to be manually enabled
-ENABLE_SH_TESTS?=0
 
 BUILD_LIB_BITSTREAM=0
 ifneq ($(ENABLE_EXE_ENCODER),0)
@@ -115,6 +115,7 @@ endif
 ifneq ($(BUILD_LIB_COM_DEC),0)
   -include lib_common_dec/project.mk
 endif
+
 
 
 ifneq ($(ENABLE_CLIENT_FLAG),0)
@@ -144,7 +145,7 @@ ref_target = $(LIB_REFENC_A) \
 lib_ref_goals:= $(shell echo $(MAKECMDGOALS) | sed -e "s/ /\n/g" | grep lib_ref | xargs)
 $(ref_target): .submake ;
 .submake:
-	$(MAKE) $(lib_ref_goals) -j$(shell nproc) -C lib_ref_customer \
+	$(MAKE) $(lib_ref_goals) -C lib_ref_customer \
 	ENABLE_64BIT=$(ENABLE_64BIT) \
 	CROSS_COMPILE=$(CROSS_COMPILE) \
   CFLAGS_BASE="$(CFLAGS)" \
@@ -162,7 +163,6 @@ ifneq ($(ENABLE_EXE_DECODER),0)
   -include lib_decode/project.mk
   -include exe_decoder/project.mk
 endif
-
 
 
 
@@ -228,11 +228,4 @@ coverage: LDFLAGS+=-lgcov
 
 true_all: $(TARGETS)
 
-ifneq ($(ENABLE_SH_TESTS),0)
-test_targets: $(TEST_TARGETS)
-test: true_all test_targets
-test_clean:
-	@echo CLEAN $(BIN)/*.test
-	@rm -f $(BIN)/*.test
-endif
 .PHONY: true_all clean all

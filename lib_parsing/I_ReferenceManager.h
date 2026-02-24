@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -23,7 +23,7 @@ typedef struct AL_IReferenceManagerVtable AL_IReferenceManagerVtable;
 
 typedef struct
 {
-  const AL_IReferenceManagerVtable* vtable;
+  AL_IReferenceManagerVtable const* vtable;
 }AL_IReferenceManager;
 
 /*************************************************************************/
@@ -42,7 +42,7 @@ typedef struct AL_IReferenceManagerVtable
 
   uint8_t (* GetReflistIds)(AL_IReferenceManager* pCtx, AL_TIndex* pFrameIds, AL_TIndex* pAnnexIds, bool* pConcealIds, bool bConceal, AL_TIndex tConcealPicID);
   AL_TIndex (* GetLastPicID)(AL_IReferenceManager const* pCtx);
-  AL_TIndex (* GetAnnexIdFromReferenceId)(AL_IReferenceManager const* pCtx, uint8_t uRefId);
+  AL_TIndex (* GetAnnexIdFromReferenceId)(AL_IReferenceManager const* pCtx, AL_TIndex tRefId);
 }AL_IReferenceManagerVtable;
 
 /*************************************************************************/
@@ -124,7 +124,7 @@ AL_TIndex AL_IReferenceManager_GetLastPicID(AL_IReferenceManager const* pCtx)
 
 /*************************************************************************/
 static inline
-AL_TIndex AL_IReferenceManager_GetAnnexIdFromReferenceId(AL_IReferenceManager const* pCtx, uint8_t uRefId)
+AL_TIndex AL_IReferenceManager_GetAnnexIdFromReferenceId(AL_IReferenceManager const* pCtx, AL_TIndex tRefId)
 {
-  return pCtx->vtable->GetAnnexIdFromReferenceId(pCtx, uRefId);
+  return pCtx->vtable->GetAnnexIdFromReferenceId(pCtx, tRefId);
 }

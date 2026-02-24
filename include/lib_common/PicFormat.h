@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -102,8 +102,8 @@ typedef enum AL_EChromaMode
   AL_CHROMA_MAX_ENUM, /* sentinel */
 }AL_EChromaMode;
 
-#define FB_TILE_32x4 1 << 0
-#define FB_TILE_64x4 1 << 1
+#define FB_TILE_32x4 (1 << 0)
+#define FB_TILE_64x4 (1 << 1)
 
 /*****************************************************************************
    \brief Frame buffer storage mode. It describes the scan order of the
@@ -131,10 +131,6 @@ typedef enum AL_EPlaneMode
   AL_PLANE_MODE_INTERLEAVED, /*!< All components are stored in a single unique plane, in an interleaved fashion */
   AL_PLANE_MODE_MAX_ENUM, /* sentinel */
 }AL_EPlaneMode;
-
-AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_U_V, AL_PLANE_MODE_PLANAR, "Renamed. Use AL_ORDER_PLANAR.");
-AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_V_U, AL_PLANE_MODE_PLANAR, "Renamed. Use AL_ORDER_PLANAR.");
-AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_PACKED, AL_PLANE_MODE_INTERLEAVED, "Renamed. Use AL_ORDER_INTERLEAVED.");
 
 /*****************************************************************************
    \brief Frame buffer component order. In case of a planar frame buffer, as
@@ -232,6 +228,7 @@ typedef enum AL_EOutputType
   AL_OUTPUT_MAIN,
   AL_OUTPUT_POSTPROC,
   AL_OUTPUT_LCEVC,
+  AL_OUTPUT_ANY,
   AL_OUTPUT_MAX_ENUM,
 }AL_EOutputType;
 

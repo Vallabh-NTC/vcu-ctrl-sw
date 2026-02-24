@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,10 +11,16 @@
 typedef struct
 {
   // Context
-  AL_THevcPps pPPS[AL_HEVC_MAX_PPS]; // Holds received PPSs.
-  AL_THevcSps pSPS[AL_HEVC_MAX_SPS]; // Holds received SPSs.
-  AL_THevcVps pVPS[AL_HEVC_MAX_VPS]; // Holds received VPSs.
+  AL_THevcPps PPSs[AL_HEVC_MAX_PPS]; // Holds received PPSs.
+  AL_THevcSps SPSs[AL_HEVC_MAX_SPS]; // Holds received SPSs.
+  AL_THevcVps VPSs[AL_HEVC_MAX_VPS]; // Holds received VPSs.
+
+  AL_THevcPps* pPPS;
+  AL_THevcSps* pSPS;
+  AL_THevcVps* pVPS;
+
   AL_THevcSps* pActiveSPS;           // Holds only the currently active SPS.
+  AL_THevcPps const* pActivePPS;     // Holds only the currently active PPS.
 
   AL_EPicStruct ePicStruct;
 }AL_THevcAup;
@@ -23,11 +29,14 @@ typedef struct
 typedef struct
 {
   // Context
-  AL_TAvcSps pSPS[AL_AVC_MAX_SPS]; // Holds all already received SPSs.
-  AL_TAvcPps pPPS[AL_AVC_MAX_PPS]; // Holds all already received PPSs.
+  AL_TAvcPps PPSs[AL_AVC_MAX_PPS]; // Holds all already received PPSs.
+  AL_TAvcSps SPSs[AL_AVC_MAX_SPS]; // Holds all already received SPSs.
+  AL_TAvcPps* pPPS;
+  AL_TAvcSps* pSPS;
   AL_TAvcSps* pActiveSPS;    // Holds only the currently active ParserSPS.
 
   AL_ESliceType ePictureType;
+  uint32_t uCurTemporalID;
 }AL_TAvcAup;
 
 typedef struct

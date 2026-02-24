@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -11,6 +11,7 @@
 #include "lib_common/Round.h"
 #include "lib_common_enc/SPS.h"
 #include "lib_common_enc/EncPicInfo.h"
+#include "lib_common_enc/EncChanParam.h"
 
 /****************************************************************************/
 bool isBaseLayer(int32_t iLayer)
@@ -294,10 +295,7 @@ bool HasCuQpDeltaDepthEnabled(AL_TEncSettings const* pSettings, AL_TEncChanParam
 {
   return (pSettings->eQpCtrlMode != AL_QP_CTRL_NONE)
          || (pSettings->eQpTableMode != AL_QP_TABLE_NONE)
-         || (pChParam->tRCParam.eRCMode == AL_RC_LOW_LATENCY)
-         || (pChParam->tRCParam.pMaxPictureSize[AL_SLICE_I] > 0)
-         || (pChParam->tRCParam.pMaxPictureSize[AL_SLICE_P] > 0)
-         || (pChParam->tRCParam.pMaxPictureSize[AL_SLICE_B] > 0)
+         || (AL_IsEncHwRateCtrlEnabled(&pChParam->tRCParam))
          || (pChParam->tRCParam.eRCMode == AL_RC_CAPPED_VBR)
          || (pChParam->uSliceSize)
   ;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -8,11 +8,11 @@
  *****************************************************************************/
 #pragma once
 
-typedef struct AL_TDriver AL_TDriver;
+#include "lib_common/I_Communication.h"
 
 /*****************************************************************************
     \brief Get a driver that will access an hardware device
 *****************************************************************************/
-AL_TDriver* AL_GetHardwareDriver(void);
+AL_ICommunication* AL_GetLinuxDriverCommunication(void);
 
 /*!@}*/

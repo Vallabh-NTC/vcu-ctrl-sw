@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -39,12 +39,5 @@ static inline bool AL_HAS_SEI_PREFIX(AL_ESeiFlag seiFlag)
 {
   return (seiFlag & 0x0000FFFF) != 0;
 }
-
-/****************************************************************************/
-static uint8_t const SEI_PREFIX_USER_DATA_UNREGISTERED_UUID[16] =
-{
-  0xb1, 0xe1, 0x67, 0xa4, 0xd9, 0xca, 0x11, 0xe7,
-  0xb1, 0x9b, 0x00, 0x50, 0xc2, 0x49, 0x00, 0x48
-};
 
 /*!@}*/

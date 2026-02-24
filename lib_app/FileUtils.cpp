@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <iostream>
@@ -25,6 +25,30 @@ static const char PathSeparator = '/';
 static const char WinPathSeparator = '\\';
 
 /****************************************************************************/
+std::string DirName(const std::string& filename)
+{
+  size_t lastseparatorpos = filename.find_last_of(PathSeparator);
+#if defined(_WIN32)
+  size_t lastwinseparatorpos = filename.find_last_of(WinPathSeparator);
+  lastseparatorpos = lastseparatorpos > lastwinseparatorpos ? lastseparatorpos : lastwinseparatorpos;
+#endif
+  std::string dirname = filename.substr(0, lastseparatorpos + 1);
+  return dirname;
+}
+
+/****************************************************************************/
+std::string BaseName(const std::string& filename)
+{
+  size_t lastseparatorpos = filename.find_last_of(PathSeparator);
+#if defined(_WIN32)
+  size_t lastwinseparatorpos = filename.find_last_of(WinPathSeparator);
+  lastseparatorpos = lastseparatorpos > lastwinseparatorpos ? lastseparatorpos : lastwinseparatorpos;
+#endif
+  std::string dirname = filename.substr(lastseparatorpos + 1);
+  return dirname;
+}
+
+/****************************************************************************/
 void FormatFolderPath(std::string& folderPath)
 {
   if(folderPath.empty())
@@ -47,7 +71,7 @@ std::string CombinePath(const std::string& folder, const std::string& filename)
 }
 
 /****************************************************************************/
-std::string CreateFileNameWithID(const std::string& path, const std::string& motif, const std::string& extension, int32_t iFrameID)
+std::string CreateFileNameWithID(const std::string& path, const std::string& motif, const std::string& extension, AL_64S iFrameID)
 {
   std::ostringstream filename;
   filename << motif << "_" << iFrameID << extension;

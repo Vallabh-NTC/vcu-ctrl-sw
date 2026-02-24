@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -297,7 +297,7 @@ void AL_AVC_Dpb_ReorderPictList(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, TB
   if(pSlice->ref_pic_list_reordering_flag_l0)
   {
     uint8_t uParse = 0;
-    uint8_t uRefIdxL0 = 0;
+    AL_TIndex tRefIdxL0 = 0;
     uint8_t uParseShort = 0;
     uint8_t uParseLong = 0;
 
@@ -308,10 +308,10 @@ void AL_AVC_Dpb_ReorderPictList(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, TB
       {
       case 0:
       case 1:
-        AL_Dpb_ModifShortTerm(pDpb, pSlice, iPicNumIdc, uParseShort++, 0, &uRefIdxL0, &iPicNumPred, pListRef);
+        AL_Dpb_ModifShortTerm(pDpb, pSlice, iPicNumIdc, uParseShort++, 0, &tRefIdxL0, &iPicNumPred, pListRef);
         break;
       case 2:
-        AL_Dpb_ModifLongTerm(pDpb, pSlice, uParseLong++, 0, &uRefIdxL0, pListRef);
+        AL_Dpb_ModifLongTerm(pDpb, pSlice, uParseLong++, 0, &tRefIdxL0, pListRef);
         break;
       default:
         break;
@@ -322,7 +322,7 @@ void AL_AVC_Dpb_ReorderPictList(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, TB
   if(pSlice->ref_pic_list_reordering_flag_l1 && pSlice->slice_type == AL_SLICE_B)
   {
     uint8_t uParse = 0;
-    uint8_t uRefIdxL1 = 0;
+    AL_TIndex tRefIdxL1 = 0;
     uint8_t uParseShort = 0;
     uint8_t uParseLong = 0;
 
@@ -335,10 +335,10 @@ void AL_AVC_Dpb_ReorderPictList(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, TB
       {
       case 0:
       case 1:
-        AL_Dpb_ModifShortTerm(pDpb, pSlice, iPicNumIdc, uParseShort++, 1, &uRefIdxL1, &iPicNumPred, pListRef);
+        AL_Dpb_ModifShortTerm(pDpb, pSlice, iPicNumIdc, uParseShort++, 1, &tRefIdxL1, &iPicNumPred, pListRef);
         break;
       case 2:
-        AL_Dpb_ModifLongTerm(pDpb, pSlice, uParseLong++, 1, &uRefIdxL1, pListRef);
+        AL_Dpb_ModifLongTerm(pDpb, pSlice, uParseLong++, 1, &tRefIdxL1, pListRef);
         break;
       default:
         break;

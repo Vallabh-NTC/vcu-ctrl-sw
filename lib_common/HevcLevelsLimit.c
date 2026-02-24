@@ -1,20 +1,8 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "HevcLevelsLimit.h"
 #include "Utils.h"
-
-/****************************************************************************/
-bool AL_HEVC_CheckLevel(int32_t level)
-{
-  return (level == 10)
-         || ((level >= 20) && (level <= 21))
-         || ((level >= 30) && (level <= 31))
-         || ((level >= 40) && (level <= 41))
-         || ((level >= 50) && (level <= 52))
-         || ((level >= 60) && (level <= 63))
-         || ((level >= 70) && (level <= 72));
-}
 
 /****************************************************************************/
 uint32_t AL_HEVC_GetMaxNumberOfSlices(int32_t level)

@@ -1,7 +1,8 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "HevcParser.h"
+#include "lib_parsing/HevcParser.h"
+#include "lib_rtos/assert.h"
 #include "lib_common/Utils.h"
 #include "lib_common/SeiInternal.h"
 #include "lib_common/ScalingList.h"
@@ -25,7 +26,8 @@ static void initPps(AL_THevcPps* pPPS)
   pPPS->pps_beta_offset_div2 = 0;
   pPPS->pps_tc_offset_div2 = 0;
 
-  pPPS->pps_extension_7bits = 0;
+  pPPS->pps_multilayer_extension_flag = 0;
+  pPPS->pps_extension_6bits = 0;
   pPPS->pps_range_extension_flag = 0;
   pPPS->log2_transform_skip_block_size_minus2 = 0;
   pPPS->cross_component_prediction_enabled_flag = 0;
@@ -104,10 +106,72 @@ static void hevc_scaling_list_data(AL_TSCLParam* pSCLParam, AL_TRbspParser* pRP)
 }
 
 /*****************************************************************************/
-AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* pPpsId)
+static void colour_mapping_table(AL_TRbspParser* pRP, AL_THevcPps* pPPS)
+{
+  (void)pRP;
+  (void)pPPS;
+
+  // XXX Here we skip till the end of the Nal which is valid only because
+  // the following data in pps_extension_6bits are also skipped
+  while(more_rbsp_data(pRP))
+    skip(pRP, 1);
+}
+
+static void pps_multilayer_extension(AL_TRbspParser* pRP, AL_THevcPps* pPPS)
+{
+  pPPS->poc_reset_info_present_flag = u(pRP, 1);
+  pPPS->pps_infer_scaling_list_flag = u(pRP, 1);
+
+  if(pPPS->pps_infer_scaling_list_flag)
+    pPPS->pps_scaling_list_ref_layer_id = u(pRP, 6);
+  pPPS->num_ref_loc_offsets = ue(pRP);
+
+  for(uint32_t i = 0; i < pPPS->num_ref_loc_offsets; i++)
+  {
+    pPPS->ref_loc_offset_layer_id[i] = u(pRP, 6);
+    pPPS->scaled_ref_layer_offset_present_flag[i] = u(pRP, 1);
+
+    if(pPPS->scaled_ref_layer_offset_present_flag[i])
+    {
+      pPPS->scaled_ref_layer_left_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->scaled_ref_layer_top_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->scaled_ref_layer_right_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->scaled_ref_layer_bottom_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+    }
+    pPPS->ref_region_offset_present_flag[i] = u(pRP, 1);
+
+    if(pPPS->ref_region_offset_present_flag[i])
+    {
+      pPPS->ref_region_left_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->ref_region_top_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->ref_region_right_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+      pPPS->ref_region_bottom_offset[pPPS->ref_loc_offset_layer_id[i]] = se(pRP);
+    }
+    pPPS->resample_phase_set_present_flag[i] = u(pRP, 1);
+
+    if(pPPS->resample_phase_set_present_flag[i])
+    {
+      pPPS->phase_hor_luma[pPPS->ref_loc_offset_layer_id[i]] = ue(pRP);
+      pPPS->phase_ver_luma[pPPS->ref_loc_offset_layer_id[i]] = ue(pRP);
+      pPPS->phase_hor_chroma_plus8[pPPS->ref_loc_offset_layer_id[i]] = ue(pRP);
+      pPPS->phase_ver_chroma_plus8[pPPS->ref_loc_offset_layer_id[i]] = ue(pRP);
+    }
+  }
+
+  pPPS->colour_mapping_enabled_flag = u(pRP, 1);
+
+  if(pPPS->colour_mapping_enabled_flag)
+    colour_mapping_table(pRP, pPPS);
+}
+
+AL_EParseResult AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* pPpsId)
 {
   skipAllZerosAndTheNextByte(pRP);
-  u(pRP, 16); // Skip NUT + temporal_id
+
+  u(pRP, 1); // forbidden zero bit
+  uint8_t nut = u(pRP, 6);
+  uint8_t nuh_layer_id = u(pRP, 6);
+  uint8_t nuh_temporal_layer_id_plus_1 = u(pRP, 3);
 
   uint16_t pps_id = ue(pRP);
 
@@ -121,6 +185,10 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
 
   // default values
   initPps(pPPS);
+
+  pPPS->nal_unit_type = nut;
+  pPPS->nuh_layer_id = nuh_layer_id;
+  pPPS->nuh_temporal_layer_id_plus_1 = nuh_temporal_layer_id_plus_1;
 
   pPPS->pps_pic_parameter_set_id = pps_id;
   pPPS->pps_seq_parameter_set_id = ue(pRP);
@@ -236,6 +304,8 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
   pPPS->loop_filter_across_slices_enabled_flag = u(pRP, 1);
   pPPS->deblocking_filter_control_present_flag = u(pRP, 1);
 
+  COMPLY(pPPS->deblocking_filter_control_present_flag != UINT8_MAX);
+
   if(pPPS->deblocking_filter_control_present_flag)
   {
     pPPS->deblocking_filter_override_enabled_flag = u(pRP, 1);
@@ -250,10 +320,10 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
 
   pPPS->pps_scaling_list_data_present_flag = u(pRP, 1);
 
+  COMPLY(pPPS->pps_scaling_list_data_present_flag != UINT8_MAX);
+
   if(pPPS->pps_scaling_list_data_present_flag)
     hevc_scaling_list_data(&pPPS->scaling_list_param, pRP);
-  else // get scaling_list data from associated sps
-    pPPS->scaling_list_param = pPPS->pSPS->scaling_list_param;
 
   pPPS->lists_modification_present_flag = u(pRP, 1);
   pPPS->log2_parallel_merge_level_minus2 = Clip3(ue(pRP), 0, pPPS->pSPS->Log2CtbSize - 2);
@@ -261,11 +331,16 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
   pPPS->slice_segment_header_extension_present_flag = u(pRP, 1);
   pPPS->pps_extension_present_flag = u(pRP, 1);
 
+  COMPLY(pPPS->pps_extension_present_flag != UINT8_MAX);
+
   if(pPPS->pps_extension_present_flag)
   {
     pPPS->pps_range_extension_flag = u(pRP, 1);
-    pPPS->pps_extension_7bits = u(pRP, 7);
+    pPPS->pps_multilayer_extension_flag = u(pRP, 1);
+    pPPS->pps_extension_6bits = u(pRP, 6);
   }
+
+  COMPLY(pPPS->pps_range_extension_flag != UINT8_MAX);
 
   if(pPPS->pps_range_extension_flag)
   {
@@ -289,7 +364,16 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
     pPPS->log2_sao_offset_scale_chroma = ue(pRP);
   }
 
-  if(pPPS->pps_extension_7bits) // pps_extension_flag
+  COMPLY(pPPS->pps_multilayer_extension_flag != UINT8_MAX);
+
+  if(pPPS->pps_multilayer_extension_flag)
+  {
+    pps_multilayer_extension(pRP, pPPS);
+  }
+
+  COMPLY(pPPS->pps_extension_6bits != UINT8_MAX);
+
+  if(pPPS->pps_extension_6bits) // pps_extension_flag
   {
     while(more_rbsp_data(pRP))
       skip(pRP, 1); // pps_extension_data_flag
@@ -297,7 +381,7 @@ AL_PARSE_RESULT AL_HEVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* 
 
   COMPLY(rbsp_trailing_bits(pRP));
 
-  return AL_OK;
+  return AL_PARSE_OK;
 }
 
 /*****************************************************************************/
@@ -423,84 +507,86 @@ static bool AL_HEVC_sComputeRefPicSetVariables(AL_THevcSps* pSPS, uint8_t RpsIdx
 }
 
 /*****************************************************************************/
-static void hevc_profile_tier_level(AL_THevcProfilevel* pPrfLvl, int32_t iMaxSubLayersMinus1, AL_TRbspParser* pRP)
+static void hevc_profile_tier_level(AL_THevcProfilevel* pPrfLvl, int32_t iMaxSubLayersMinus1, bool bProfilePresent, AL_TRbspParser* pRP)
 {
-  pPrfLvl->general_profile_space = u(pRP, 2);
-  pPrfLvl->general_tier_flag = u(pRP, 1);
-  pPrfLvl->general_profile_idc = u(pRP, 5);
-
-  for(int32_t i = 0; i < 32; ++i)
-    pPrfLvl->general_profile_compatibility_flag[i] = u(pRP, 1);
-
-  pPrfLvl->general_progressive_source_flag = u(pRP, 1);
-  pPrfLvl->general_interlaced_source_flag = u(pRP, 1);
-  pPrfLvl->general_non_packed_constraint_flag = u(pRP, 1);
-  pPrfLvl->general_frame_only_constraint_flag = u(pRP, 1);
-
-  pPrfLvl->general_max_12bit_constraint_flag = 0;
-  pPrfLvl->general_max_10bit_constraint_flag = 0;
-  pPrfLvl->general_max_8bit_constraint_flag = 0;
-  pPrfLvl->general_max_422chroma_constraint_flag = 0;
-  pPrfLvl->general_max_420chroma_constraint_flag = 0;
-  pPrfLvl->general_max_monochrome_constraint_flag = 0;
-  pPrfLvl->general_intra_constraint_flag = 0;
-  pPrfLvl->general_one_picture_only_constraint_flag = 0;
-  pPrfLvl->general_lower_bit_rate_constraint_flag = 0;
-  pPrfLvl->general_max_14bit_constraint_flag = 0;
-  pPrfLvl->general_inbld_flag = 0;
-
-  if(pPrfLvl->general_profile_idc == 4 || pPrfLvl->general_profile_compatibility_flag[4] ||
-     pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
-     pPrfLvl->general_profile_idc == 6 || pPrfLvl->general_profile_compatibility_flag[6] ||
-     pPrfLvl->general_profile_idc == 7 || pPrfLvl->general_profile_compatibility_flag[7] ||
-     pPrfLvl->general_profile_idc == 8 || pPrfLvl->general_profile_compatibility_flag[8] ||
-     pPrfLvl->general_profile_idc == 9 || pPrfLvl->general_profile_compatibility_flag[9] ||
-     pPrfLvl->general_profile_idc == 10 || pPrfLvl->general_profile_compatibility_flag[10] ||
-     pPrfLvl->general_profile_idc == 11 || pPrfLvl->general_profile_compatibility_flag[11])
+  if(bProfilePresent)
   {
-    pPrfLvl->general_max_12bit_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_max_10bit_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_max_8bit_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_max_422chroma_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_max_420chroma_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_max_monochrome_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_intra_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_one_picture_only_constraint_flag = u(pRP, 1);
-    pPrfLvl->general_lower_bit_rate_constraint_flag = u(pRP, 1);
+    pPrfLvl->general_profile_space = u(pRP, 2);
+    pPrfLvl->general_tier_flag = u(pRP, 1);
+    pPrfLvl->general_profile_idc = u(pRP, 5);
 
-    if(pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
+    for(int32_t i = 0; i < 32; ++i)
+      pPrfLvl->general_profile_compatibility_flag[i] = u(pRP, 1);
+
+    pPrfLvl->general_progressive_source_flag = u(pRP, 1);
+    pPrfLvl->general_interlaced_source_flag = u(pRP, 1);
+    pPrfLvl->general_non_packed_constraint_flag = u(pRP, 1);
+    pPrfLvl->general_frame_only_constraint_flag = u(pRP, 1);
+
+    pPrfLvl->general_max_12bit_constraint_flag = 0;
+    pPrfLvl->general_max_10bit_constraint_flag = 0;
+    pPrfLvl->general_max_8bit_constraint_flag = 0;
+    pPrfLvl->general_max_422chroma_constraint_flag = 0;
+    pPrfLvl->general_max_420chroma_constraint_flag = 0;
+    pPrfLvl->general_max_monochrome_constraint_flag = 0;
+    pPrfLvl->general_intra_constraint_flag = 0;
+    pPrfLvl->general_one_picture_only_constraint_flag = 0;
+    pPrfLvl->general_lower_bit_rate_constraint_flag = 0;
+    pPrfLvl->general_max_14bit_constraint_flag = 0;
+    pPrfLvl->general_inbld_flag = 0;
+
+    if(pPrfLvl->general_profile_idc == 4 || pPrfLvl->general_profile_compatibility_flag[4] ||
+       pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
+       pPrfLvl->general_profile_idc == 6 || pPrfLvl->general_profile_compatibility_flag[6] ||
+       pPrfLvl->general_profile_idc == 7 || pPrfLvl->general_profile_compatibility_flag[7] ||
+       pPrfLvl->general_profile_idc == 8 || pPrfLvl->general_profile_compatibility_flag[8] ||
        pPrfLvl->general_profile_idc == 9 || pPrfLvl->general_profile_compatibility_flag[9] ||
        pPrfLvl->general_profile_idc == 10 || pPrfLvl->general_profile_compatibility_flag[10] ||
        pPrfLvl->general_profile_idc == 11 || pPrfLvl->general_profile_compatibility_flag[11])
     {
-      pPrfLvl->general_max_14bit_constraint_flag = u(pRP, 1);
-      skip(pRP, 33); // general_reserved_zero_33bits
+      pPrfLvl->general_max_12bit_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_max_10bit_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_max_8bit_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_max_422chroma_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_max_420chroma_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_max_monochrome_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_intra_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_one_picture_only_constraint_flag = u(pRP, 1);
+      pPrfLvl->general_lower_bit_rate_constraint_flag = u(pRP, 1);
+
+      if(pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
+         pPrfLvl->general_profile_idc == 9 || pPrfLvl->general_profile_compatibility_flag[9] ||
+         pPrfLvl->general_profile_idc == 10 || pPrfLvl->general_profile_compatibility_flag[10] ||
+         pPrfLvl->general_profile_idc == 11 || pPrfLvl->general_profile_compatibility_flag[11])
+      {
+        pPrfLvl->general_max_14bit_constraint_flag = u(pRP, 1);
+        skip(pRP, 33); // general_reserved_zero_33bits
+      }
+      else
+        skip(pRP, 34); // general_reserved_zero_34bits
+    }
+    else if(pPrfLvl->general_profile_idc == 2 || pPrfLvl->general_profile_compatibility_flag[2])
+    {
+      skip(pRP, 7); // general_reserved_zero_7bits
+      pPrfLvl->general_one_picture_only_constraint_flag = u(pRP, 1);
+      skip(pRP, 35); // general_reserved_zero_35bits
     }
     else
-      skip(pRP, 34); // general_reserved_zero_34bits
-  }
-  else if(pPrfLvl->general_profile_idc == 2 || pPrfLvl->general_profile_compatibility_flag[2])
-  {
-    skip(pRP, 7); // general_reserved_zero_7bits
-    pPrfLvl->general_one_picture_only_constraint_flag = u(pRP, 1);
-    skip(pRP, 35); // general_reserved_zero_35bits
-  }
-  else
-    skip(pRP, 43); // general_reserved_zero_43bits
+      skip(pRP, 43); // general_reserved_zero_43bits
 
-  if(pPrfLvl->general_profile_idc == 1 || pPrfLvl->general_profile_compatibility_flag[1] ||
-     pPrfLvl->general_profile_idc == 2 || pPrfLvl->general_profile_compatibility_flag[2] ||
-     pPrfLvl->general_profile_idc == 3 || pPrfLvl->general_profile_compatibility_flag[3] ||
-     pPrfLvl->general_profile_idc == 4 || pPrfLvl->general_profile_compatibility_flag[4] ||
-     pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
-     pPrfLvl->general_profile_idc == 9 || pPrfLvl->general_profile_compatibility_flag[9] ||
-     pPrfLvl->general_profile_idc == 11 || pPrfLvl->general_profile_compatibility_flag[11])
-  {
-    pPrfLvl->general_inbld_flag = u(pRP, 1);
+    if(pPrfLvl->general_profile_idc == 1 || pPrfLvl->general_profile_compatibility_flag[1] ||
+       pPrfLvl->general_profile_idc == 2 || pPrfLvl->general_profile_compatibility_flag[2] ||
+       pPrfLvl->general_profile_idc == 3 || pPrfLvl->general_profile_compatibility_flag[3] ||
+       pPrfLvl->general_profile_idc == 4 || pPrfLvl->general_profile_compatibility_flag[4] ||
+       pPrfLvl->general_profile_idc == 5 || pPrfLvl->general_profile_compatibility_flag[5] ||
+       pPrfLvl->general_profile_idc == 9 || pPrfLvl->general_profile_compatibility_flag[9] ||
+       pPrfLvl->general_profile_idc == 11 || pPrfLvl->general_profile_compatibility_flag[11])
+    {
+      pPrfLvl->general_inbld_flag = u(pRP, 1);
+    }
+    else
+      skip(pRP, 1); // general_reserved_zero_bit
   }
-  else
-    skip(pRP, 1); // general_reserved_zero_bit
-
   pPrfLvl->general_level_idc = u(pRP, 8);
 
   for(int32_t i = 0; i < iMaxSubLayersMinus1; i++)
@@ -603,12 +689,11 @@ static void hevc_profile_tier_level(AL_THevcProfilevel* pPrfLvl, int32_t iMaxSub
 }
 
 /*****************************************************************************/
-static void initSps(AL_THevcSps* pSPS)
+void AL_HEVC_InitSps(AL_THevcSps* pSPS)
 {
   Rtos_Memset(pSPS, 0, sizeof(AL_THevcSps));
 
   pSPS->chroma_format_idc = 1;
-
   pSPS->bConceal = true;
 }
 
@@ -807,24 +892,40 @@ static void hevc_vui_parameters(AL_TVuiParam* pVuiParam, int32_t iMaxSubLayersMi
 }
 
 /*****************************************************************************/
-AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
+AL_EParseResult AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
 {
   skipAllZerosAndTheNextByte(pRP);
-  u(pRP, 16); // Skip NUT + temporal_id
 
-  initSps(pSPS);
+  u(pRP, 1); // forbidden zero bit
+  pSPS->nal_unit_type = u(pRP, 6);
+  pSPS->nuh_layer_id = u(pRP, 6);
+  pSPS->nuh_temporal_layer_id_plus_1 = u(pRP, 3);
 
   pSPS->sps_video_parameter_set_id = u(pRP, 4);
   COMPLY_ID(pSPS->sps_video_parameter_set_id < AL_HEVC_MAX_VPS);
 
-  int32_t max_sub_layers = Clip3(u(pRP, 3), 0, AL_MAX_SUB_LAYER - 1);
-  pSPS->sps_max_sub_layers_minus1 = max_sub_layers;
-  pSPS->sps_temporal_id_nesting_flag = u(pRP, 1);
+  AL_THevcVps* pVPS = &pSPS->pVPS[pSPS->sps_video_parameter_set_id];
 
-  hevc_profile_tier_level(&pSPS->profile_and_level, pSPS->sps_max_sub_layers_minus1, pRP);
+  if(pSPS->nuh_layer_id == 0)
+  {
+    int32_t max_sub_layers = Clip3(u(pRP, 3), 0, AL_MAX_SUB_LAYER - 1);
+    pSPS->sps_max_sub_layers_minus1 = max_sub_layers;
+  }
+  else
+  {
+    pSPS->sps_ext_or_max_sub_layers_minus1 = u(pRP, 3);
+    pSPS->sps_max_sub_layers_minus1 = pSPS->sps_ext_or_max_sub_layers_minus1 == 7 ? pVPS->vps_max_sub_layers_minus1 : pSPS->sps_ext_or_max_sub_layers_minus1;
+  }
+  bool MultiLayerExtSpsFlag = (pSPS->nuh_layer_id != 0 && pSPS->sps_ext_or_max_sub_layers_minus1 == 7);
 
-  if(pSPS->profile_and_level.general_level_idc == 0)
-    pSPS->profile_and_level.general_level_idc = CONCEAL_LEVEL_IDC;
+  if(!MultiLayerExtSpsFlag)
+  {
+    pSPS->sps_temporal_id_nesting_flag = u(pRP, 1);
+    hevc_profile_tier_level(&pSPS->profile_and_level, pSPS->sps_max_sub_layers_minus1, true, pRP);
+
+    if(pSPS->profile_and_level.general_level_idc == 0)
+      pSPS->profile_and_level.general_level_idc = CONCEAL_LEVEL_IDC;
+  }
 
   pSPS->sps_seq_parameter_set_id = ue(pRP);
   COMPLY_ID(pSPS->sps_seq_parameter_set_id < AL_HEVC_MAX_SPS);
@@ -832,67 +933,93 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
   // default VUI values
   initVui(&pSPS->vui_param, &pSPS->profile_and_level);
 
-  pSPS->chroma_format_idc = ue(pRP);
+  if(MultiLayerExtSpsFlag)
+  {
+    Rtos_AssertWithMessage(false, "Can not decode multilayer stream", __FILE__, __LINE__);
+  }
+  else
+  {
+    pSPS->chroma_format_idc = ue(pRP);
 
-  COMPLY(pSPS->chroma_format_idc < AL_CHROMA_MAX_ENUM);
+    COMPLY(pSPS->chroma_format_idc < AL_CHROMA_MAX_ENUM);
 
-  if(pSPS->chroma_format_idc == 3)
-    pSPS->separate_colour_plane_flag = u(pRP, 1);
+    if(pSPS->chroma_format_idc == 3)
+      pSPS->separate_colour_plane_flag = u(pRP, 1);
+
+    pSPS->pic_width_in_luma_samples = ue(pRP);
+    pSPS->pic_height_in_luma_samples = ue(pRP);
+
+    pSPS->conformance_window_flag = u(pRP, 1);
+
+    if(pSPS->conformance_window_flag)
+    {
+      pSPS->conf_win_left_offset = ue(pRP);
+      pSPS->conf_win_right_offset = ue(pRP);
+      pSPS->conf_win_top_offset = ue(pRP);
+      pSPS->conf_win_bottom_offset = ue(pRP);
+
+      if(pSPS->conf_win_bottom_offset + pSPS->conf_win_top_offset >= pSPS->pic_height_in_luma_samples)
+      {
+        pSPS->conf_win_top_offset = 0;
+        pSPS->conf_win_bottom_offset = 0;
+      }
+
+      if(pSPS->conf_win_left_offset + pSPS->conf_win_right_offset >= pSPS->pic_width_in_luma_samples)
+      {
+        pSPS->conf_win_left_offset = 0;
+        pSPS->conf_win_right_offset = 0;
+      }
+    }
+    else
+    {
+      pSPS->conf_win_left_offset = 0;
+      pSPS->conf_win_right_offset = 0;
+      pSPS->conf_win_top_offset = 0;
+      pSPS->conf_win_bottom_offset = 0;
+    }
+
+    pSPS->bit_depth_luma_minus8 = Clip3(ue(pRP), 0, MAX_BIT_DEPTH_MINUS_8);
+    pSPS->bit_depth_chroma_minus8 = Clip3(ue(pRP), 0, MAX_BIT_DEPTH_MINUS_8);
+  }
 
   if(pSPS->separate_colour_plane_flag)
     pSPS->ChromaArrayType = 0;
   else
     pSPS->ChromaArrayType = pSPS->chroma_format_idc;
 
-  pSPS->pic_width_in_luma_samples = ue(pRP);
-  pSPS->pic_height_in_luma_samples = ue(pRP);
-
-  pSPS->conformance_window_flag = u(pRP, 1);
-
-  if(pSPS->conformance_window_flag)
-  {
-    pSPS->conf_win_left_offset = ue(pRP);
-    pSPS->conf_win_right_offset = ue(pRP);
-    pSPS->conf_win_top_offset = ue(pRP);
-    pSPS->conf_win_bottom_offset = ue(pRP);
-
-    if(pSPS->conf_win_bottom_offset + pSPS->conf_win_top_offset >= pSPS->pic_height_in_luma_samples)
-    {
-      pSPS->conf_win_top_offset = 0;
-      pSPS->conf_win_bottom_offset = 0;
-    }
-
-    if(pSPS->conf_win_left_offset + pSPS->conf_win_right_offset >= pSPS->pic_width_in_luma_samples)
-    {
-      pSPS->conf_win_left_offset = 0;
-      pSPS->conf_win_right_offset = 0;
-    }
-  }
-
-  pSPS->bit_depth_luma_minus8 = Clip3(ue(pRP), 0, MAX_BIT_DEPTH_MINUS_8);
-  pSPS->bit_depth_chroma_minus8 = Clip3(ue(pRP), 0, MAX_BIT_DEPTH_MINUS_8);
-
   pSPS->log2_max_slice_pic_order_cnt_lsb_minus4 = ue(pRP);
 
   COMPLY(pSPS->log2_max_slice_pic_order_cnt_lsb_minus4 <= MAX_POC_LSB_MINUS_4);
 
-  pSPS->sps_sub_layer_ordering_info_present_flag = u(pRP, 1);
-  int32_t layer_offset = pSPS->sps_sub_layer_ordering_info_present_flag ? 0 : max_sub_layers;
-
-  for(int32_t i = layer_offset; i <= max_sub_layers; ++i)
+  if(!MultiLayerExtSpsFlag)
   {
-    pSPS->sps_max_dec_pic_buffering_minus1[i] = ue(pRP);
-    pSPS->sps_max_num_reorder_pics[i] = ue(pRP);
-    pSPS->sps_max_latency_increase_plus1[i] = ue(pRP);
-  }
+    pSPS->sps_sub_layer_ordering_info_present_flag = u(pRP, 1);
+    int32_t layer_offset = pSPS->sps_sub_layer_ordering_info_present_flag ? 0 : pSPS->sps_max_sub_layers_minus1;
 
-  if(!pSPS->sps_sub_layer_ordering_info_present_flag)
-  {
-    for(int32_t i = 0; i < layer_offset; ++i)
+    for(int32_t i = layer_offset; i <= pSPS->sps_max_sub_layers_minus1; ++i)
     {
-      pSPS->sps_max_dec_pic_buffering_minus1[i] = pSPS->sps_max_dec_pic_buffering_minus1[layer_offset];
-      pSPS->sps_max_num_reorder_pics[i] = pSPS->sps_max_num_reorder_pics[layer_offset];
-      pSPS->sps_max_latency_increase_plus1[i] = pSPS->sps_max_latency_increase_plus1[layer_offset];
+      pSPS->sps_max_dec_pic_buffering_minus1[i] = ue(pRP);
+      pSPS->sps_max_num_reorder_pics[i] = ue(pRP);
+      pSPS->sps_max_latency_increase_plus1[i] = ue(pRP);
+    }
+
+    if(!pSPS->sps_sub_layer_ordering_info_present_flag)
+    {
+      for(int32_t i = 0; i < layer_offset; ++i)
+      {
+        pSPS->sps_max_dec_pic_buffering_minus1[i] = pSPS->sps_max_dec_pic_buffering_minus1[layer_offset];
+        pSPS->sps_max_num_reorder_pics[i] = pSPS->sps_max_num_reorder_pics[layer_offset];
+        pSPS->sps_max_latency_increase_plus1[i] = pSPS->sps_max_latency_increase_plus1[layer_offset];
+      }
+    }
+  }
+  else
+  {
+    for(int32_t i = 0; i <= pSPS->sps_max_sub_layers_minus1; ++i)
+    {
+      pSPS->sps_max_dec_pic_buffering_minus1[i] = pVPS->vps_max_dec_pic_buffering_minus1[i];
+      pSPS->sps_max_num_reorder_pics[i] = pVPS->vps_max_num_reorder_pics[i];
+      pSPS->sps_max_latency_increase_plus1[i] = pVPS->vps_max_latency_increase_plus1[i];
     }
   }
 
@@ -927,13 +1054,23 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
 
   if(pSPS->scaling_list_enabled_flag)
   {
-    pSPS->sps_scaling_list_data_present_flag = u(pRP, 1);
+    if(MultiLayerExtSpsFlag)
+      pSPS->sps_infer_scaling_list_flag = u(pRP, 1);
 
-    if(pSPS->sps_scaling_list_data_present_flag)
-      hevc_scaling_list_data(&pSPS->scaling_list_param, pRP);
+    if(pSPS->sps_infer_scaling_list_flag)
+    {
+      pSPS->sps_scaling_list_ref_layer_id = u(pRP, 6);
+    }
     else
-      for(int32_t i = 0; i < 20; ++i)
-        pSPS->scaling_list_param.UseDefaultScalingMatrixFlag[i] = 1;
+    {
+      pSPS->sps_scaling_list_data_present_flag = u(pRP, 1);
+
+      if(pSPS->sps_scaling_list_data_present_flag)
+        hevc_scaling_list_data(&pSPS->scaling_list_param, pRP);
+      else
+        for(int32_t i = 0; i < 20; ++i)
+          pSPS->scaling_list_param.UseDefaultScalingMatrixFlag[i] = 1;
+    }
   }
 
   pSPS->amp_enabled_flag = u(pRP, 1);
@@ -1006,7 +1143,8 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
   if(pSPS->sps_extension_present_flag)
   {
     pSPS->sps_range_extension_flag = u(pRP, 1);
-    pSPS->sps_extension_7bits = u(pRP, 7);
+    pSPS->sps_multilayer_extension_flag = u(pRP, 1);
+    pSPS->sps_extension_6bits = u(pRP, 6);
   }
 
   if(pSPS->sps_range_extension_flag)
@@ -1022,7 +1160,12 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
     pSPS->cabac_bypass_alignment_enabled_flag = u(pRP, 1);
   }
 
-  if(pSPS->sps_extension_7bits) // sps_extension_flag
+  if(pSPS->sps_multilayer_extension_flag)
+  {
+    pSPS->inter_view_mv_vert_constraint_flag = u(pRP, 1);
+  }
+
+  if(pSPS->sps_extension_6bits) // sps_extension_flag
   {
     while(more_rbsp_data(pRP))
       skip(pRP, 1); // sps_extension_data_flag
@@ -1038,7 +1181,7 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
   pSPS->PicWidthInMinCbs = pSPS->pic_width_in_luma_samples >> pSPS->Log2MinCbSize;
   pSPS->PicHeightInMinCbs = pSPS->pic_height_in_luma_samples >> pSPS->Log2MinCbSize;
 
-  pSPS->SpsMaxLatency = pSPS->sps_max_latency_increase_plus1[max_sub_layers] ? pSPS->sps_max_num_reorder_pics[max_sub_layers] + pSPS->sps_max_latency_increase_plus1[max_sub_layers] - 1 : UINT32_MAX;
+  pSPS->SpsMaxLatency = pSPS->sps_max_latency_increase_plus1[pSPS->sps_max_sub_layers_minus1] ? pSPS->sps_max_num_reorder_pics[pSPS->sps_max_sub_layers_minus1] + pSPS->sps_max_latency_increase_plus1[pSPS->sps_max_sub_layers_minus1] - 1 : UINT32_MAX;
 
   pSPS->MaxPicOrderCntLsb = 1 << (pSPS->log2_max_slice_pic_order_cnt_lsb_minus4 + 4);
 
@@ -1051,7 +1194,7 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
 
   pSPS->bConceal = false;
 
-  return AL_OK;
+  return AL_PARSE_OK;
 }
 
 /*****************************************************************************/
@@ -1097,7 +1240,7 @@ bool AL_HEVC_short_term_ref_pic_set(AL_THevcSps* pSPS, uint8_t RpsIdx, AL_TRbspP
 
     pRefPicSet->num_positive_pics = ue(pRP);
 
-    if(pRefPicSet->num_negative_pics > AL_MAX_REF)
+    if(pRefPicSet->num_positive_pics > AL_MAX_REF)
       return false;
 
     for(uint8_t j = 0; j < pRefPicSet->num_negative_pics; ++j)
@@ -1116,7 +1259,7 @@ bool AL_HEVC_short_term_ref_pic_set(AL_THevcSps* pSPS, uint8_t RpsIdx, AL_TRbspP
 }
 
 /*****************************************************************************/
-AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
+AL_EParseResult AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
 {
   AL_THevcVps* pVPS;
 
@@ -1127,7 +1270,7 @@ AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
   int32_t vps_id = u(pRP, 4);
 
   if(vps_id >= AL_HEVC_MAX_VPS)
-    return AL_UNSUPPORTED;
+    return AL_PARSE_UNSUPPORTED;
 
   pVPS = &pIAup->hevcAup.pVPS[vps_id];
   pVPS->vps_video_parameter_set_id = vps_id;
@@ -1140,12 +1283,14 @@ AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
   pVPS->vps_temporal_id_nesting_flag = u(pRP, 1);
   skip(pRP, 16); // vps_reserved_0xffff_16bits
 
-  hevc_profile_tier_level(&pVPS->profile_and_level[0], pVPS->vps_max_sub_layers_minus1, pRP);
+  hevc_profile_tier_level(&pVPS->profile_and_level[0], pVPS->vps_max_sub_layers_minus1, true, pRP);
 
   if(pVPS->profile_and_level[0].general_level_idc == 0)
     pVPS->profile_and_level[0].general_level_idc = CONCEAL_LEVEL_IDC;
 
   pVPS->vps_sub_layer_ordering_info_present_flag = u(pRP, 1);
+
+  COMPLY(pVPS->vps_sub_layer_ordering_info_present_flag != UINT8_MAX);
 
   int32_t layer_offset = pVPS->vps_sub_layer_ordering_info_present_flag ? 0 : pVPS->vps_max_sub_layers_minus1;
 
@@ -1156,8 +1301,20 @@ AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
     pVPS->vps_max_latency_increase_plus1[i] = ue(pRP);
   }
 
+  if(!pVPS->vps_sub_layer_ordering_info_present_flag)
+  {
+    for(int32_t i = 0; i < layer_offset; ++i)
+    {
+      pVPS->vps_max_dec_pic_buffering_minus1[i] = pVPS->vps_max_dec_pic_buffering_minus1[layer_offset];
+      pVPS->vps_max_num_reorder_pics[i] = pVPS->vps_max_num_reorder_pics[layer_offset];
+      pVPS->vps_max_latency_increase_plus1[i] = pVPS->vps_max_latency_increase_plus1[layer_offset];
+    }
+  }
+
   pVPS->vps_max_layer_id = u(pRP, 6);
   pVPS->vps_num_layer_sets_minus1 = ue(pRP);
+
+  COMPLY(more_rbsp_data(pRP));
 
   for(int32_t i = 1; i <= pVPS->vps_num_layer_sets_minus1; ++i)
   {
@@ -1168,6 +1325,7 @@ AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
   }
 
   pVPS->vps_timing_info_present_flag = u(pRP, 1);
+  COMPLY(pVPS->vps_timing_info_present_flag != UINT8_MAX);
 
   if(pVPS->vps_timing_info_present_flag)
   {
@@ -1195,49 +1353,57 @@ AL_PARSE_RESULT AL_HEVC_ParseVPS(AL_TAup* pIAup, AL_TRbspParser* pRP)
 
   if(u(pRP, 1)) // vps_extension_flag
   {
+    while(!byte_aligned(pRP))
+      skip(pRP, 1); // vps_extension_alignment_bit_equal_to_one
+
     while(more_rbsp_data(pRP))
       skip(pRP, 1); // vps_extension_data_flag
   }
   rbsp_trailing_bits(pRP);
 
-  return AL_OK;
+  return AL_PARSE_OK;
 }
 
 /*****************************************************************************/
-static AL_PARSE_RESULT SeiActiveParameterSets(AL_TRbspParser* pRP, AL_THevcAup* aup, uint8_t* pSpsId)
+static AL_ESeiParseResult SeiActiveParameterSets(AL_TRbspParser* pRP, AL_THevcAup* aup, uint8_t* pSpsId)
 {
   uint8_t active_video_parameter_set_id = u(pRP, 4);
-  /*self_Contained_cvs_flag =*/ u(pRP, 1);
-  /*no_parameter_set_update_flag =*/ u(pRP, 1);
+  u(pRP, 1); /* self_Contained_cvs_flag */
+  u(pRP, 1); /* no_parameter_set_update_flag */
   uint8_t num_sps_ids_minus1 = ue(pRP);
-  COMPLY(num_sps_ids_minus1 < AL_HEVC_MAX_SPS);
+
+  if(num_sps_ids_minus1 < AL_HEVC_MAX_SPS)
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   uint8_t active_seq_parameter_set_id[AL_HEVC_MAX_SPS];
 
   for(int32_t i = 0; i <= num_sps_ids_minus1; ++i)
   {
     active_seq_parameter_set_id[i] = ue(pRP);
-    COMPLY(active_seq_parameter_set_id[i] < AL_HEVC_MAX_SPS);
+
+    if(active_seq_parameter_set_id[i] < AL_HEVC_MAX_SPS)
+      return AL_SEI_PARSE_RESULT_PARSING_ERROR;
   }
 
   AL_THevcVps const* pVPS = &aup->pVPS[active_video_parameter_set_id];
   uint8_t MaxLayersMinus1 = Min(62, pVPS->vps_max_layers_minus1);
 
   for(int32_t i = pVPS->vps_base_layer_internal_flag; i <= MaxLayersMinus1; ++i)
-    /*layer_sps_idx[i] =*/ ue(pRP);
+    ue(pRP); /* layer_sps_idx[i] */
 
-  COMPLY(aup->pSPS[active_seq_parameter_set_id[0]].bConceal == false);
+  if(aup->pSPS[active_seq_parameter_set_id[0]].bConceal == false)
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   *pSpsId = active_seq_parameter_set_id[0];
 
-  return AL_OK;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool SeiPicTiming(AL_TRbspParser* pRP, AL_THevcSps* pSPS, AL_THevcPicTiming* pPicTiming)
+static AL_ESeiParseResult SeiPicTiming(AL_TRbspParser* pRP, AL_THevcSps* pSPS, AL_THevcPicTiming* pPicTiming)
 {
   if(pSPS == NULL || pSPS->bConceal)
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   Rtos_Memset(pPicTiming, 0, sizeof(*pPicTiming));
 
@@ -1287,51 +1453,44 @@ static bool SeiPicTiming(AL_TRbspParser* pRP, AL_THevcSps* pSPS, AL_THevcPicTimi
       }
     }
   }
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool ParseSeiPayload(SeiParserParam* p, AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, int32_t iPayloadSize, bool* bCanSendToUser, bool* bParsed)
+static AL_ESeiParseResult ParseHevcSpecificSeis(AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser)
 {
-  bool bParsingOk = true;
-  AL_THevcAup* aup = &p->pIAup->hevcAup;
-  *bCanSendToUser = true;
-  *bParsed = true;
+  (void)uPayloadSize;
+
+  AL_THevcAup* aup = &pOutputAup->hevcAup;
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  *pCanSendToUser = true;
   switch(ePayloadType)
   {
-  case SEI_PTYPE_PIC_TIMING: // picture_timing parsing
+  case SEI_PTYPE_PIC_TIMING:
   {
-    if(aup->pActiveSPS)
-    {
-      AL_THevcPicTiming tPictureTiming;
-      bParsingOk = SeiPicTiming(pRP, aup->pActiveSPS, &tPictureTiming);
+    AL_THevcPicTiming tPictureTiming;
+    eParseResult = SeiPicTiming(pRP, aup->pActiveSPS, &tPictureTiming);
 
-      if(bParsingOk)
-        aup->ePicStruct = tPictureTiming.pic_struct;
-    }
-    else
-      skip(pRP, iPayloadSize << 3);
+    if(eParseResult == AL_SEI_PARSE_RESULT_PARSED)
+      aup->ePicStruct = tPictureTiming.pic_struct;
     break;
   }
   case SEI_PTYPE_ACTIVE_PARAMETER_SETS:
   {
     uint8_t uSpsId;
-    AL_PARSE_RESULT eResult = SeiActiveParameterSets(pRP, aup, &uSpsId);
-    bParsingOk = eResult == AL_OK;
+    eParseResult = SeiActiveParameterSets(pRP, aup, &uSpsId);
 
-    if(bParsingOk)
+    if(eParseResult == AL_SEI_PARSE_RESULT_PARSED)
       aup->pActiveSPS = &aup->pSPS[uSpsId];
     break;
   }
   default:
   {
-    *bParsed = false;
-    *bCanSendToUser = false;
     break;
   }
   }
 
-  return bParsingOk;
+  return eParseResult;
 }
 
 /*****************************************************************************/
@@ -1341,12 +1500,13 @@ bool AL_HEVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB
 
   u(pRP, 16); // Skip NUT + temporal_id
 
-  SeiParserParam tUserParam = { pIAup, bIsPrefix, cb, pMeta };
-  SeiParserCB tSeiParserCb = { ParseSeiPayload, &tUserParam };
+  AL_TSeiParserCtx tParserCtx;
+  AL_SeiParser_Init(&tParserCtx, pIAup, pMeta, cb);
+  AL_SeiParser_AddCustomSeiParsing(&tParserCtx, ParseHevcSpecificSeis);
 
   do
   {
-    if(!ParseSeiHeader(pRP, &tSeiParserCb))
+    if(!AL_SeiParser_Parse(&tParserCtx, pRP, bIsPrefix))
       return false;
   }
   while(more_rbsp_data(pRP));
@@ -1359,34 +1519,27 @@ bool AL_HEVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB
 /*****************************************************************************/
 void AL_HEVC_GetCropInfo(AL_THevcSps const* pSPS, AL_TCropInfo* pCropInfo)
 {
-  if(pSPS->conformance_window_flag)
+  pCropInfo->bCropping = true;
+
+  if(pSPS->chroma_format_idc == 1 || pSPS->chroma_format_idc == 2)
   {
-    pCropInfo->bCropping = true;
-
-    if(pSPS->chroma_format_idc == 1 || pSPS->chroma_format_idc == 2)
-    {
-      pCropInfo->uCropOffsetLeft = 2 * pSPS->conf_win_left_offset;
-      pCropInfo->uCropOffsetRight = 2 * pSPS->conf_win_right_offset;
-    }
-    else
-    {
-      pCropInfo->uCropOffsetLeft = pSPS->conf_win_left_offset;
-      pCropInfo->uCropOffsetRight = pSPS->conf_win_right_offset;
-    }
-
-    if(pSPS->chroma_format_idc == 1)
-    {
-      pCropInfo->uCropOffsetTop = 2 * pSPS->conf_win_top_offset;
-      pCropInfo->uCropOffsetBottom = 2 * pSPS->conf_win_bottom_offset;
-    }
-    else
-    {
-      pCropInfo->uCropOffsetTop = pSPS->conf_win_top_offset;
-      pCropInfo->uCropOffsetBottom = pSPS->conf_win_bottom_offset;
-    }
+    pCropInfo->uCropOffsetLeft = 2 * pSPS->conf_win_left_offset;
+    pCropInfo->uCropOffsetRight = 2 * pSPS->conf_win_right_offset;
   }
   else
   {
-    ResetCropInfo(pCropInfo);
+    pCropInfo->uCropOffsetLeft = pSPS->conf_win_left_offset;
+    pCropInfo->uCropOffsetRight = pSPS->conf_win_right_offset;
+  }
+
+  if(pSPS->chroma_format_idc == 1)
+  {
+    pCropInfo->uCropOffsetTop = 2 * pSPS->conf_win_top_offset;
+    pCropInfo->uCropOffsetBottom = 2 * pSPS->conf_win_bottom_offset;
+  }
+  else
+  {
+    pCropInfo->uCropOffsetTop = pSPS->conf_win_top_offset;
+    pCropInfo->uCropOffsetBottom = pSPS->conf_win_bottom_offset;
   }
 }

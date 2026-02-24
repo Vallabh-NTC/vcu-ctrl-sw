@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "NalWriters.h"
@@ -81,59 +81,59 @@ static void seiPrefixWrite(IRbspWriter* writer, AL_TBitStreamLite* bitstream, vo
 {
   (void)layerId;
   AL_TSeiPrefixCtx* pCtx = (AL_TSeiPrefixCtx*)param;
-  uint32_t uFlags = pCtx->uFlags;
+  AL_ESeiFlag eFlags = pCtx->eFlags;
 
-  while(uFlags)
+  while(eFlags)
   {
-    if(uFlags & AL_SEI_BP)
+    if(eFlags & AL_SEI_BP)
     {
       writer->WriteSEI_BufferingPeriod(bitstream, pCtx->sps, pCtx->cpbInitialRemovalDelay, 0);
-      uFlags &= ~AL_SEI_BP;
+      eFlags &= ~AL_SEI_BP;
     }
-    else if(uFlags & AL_SEI_RP)
+    else if(eFlags & AL_SEI_RP)
     {
       writer->WriteSEI_RecoveryPoint(bitstream, pCtx->pPicStatus->iRecoveryCnt);
-      uFlags &= ~AL_SEI_RP;
+      eFlags &= ~AL_SEI_RP;
     }
-    else if(uFlags & AL_SEI_PT)
+    else if(eFlags & AL_SEI_PT)
     {
       writer->WriteSEI_PictureTiming(bitstream, pCtx->sps,
                                      pCtx->cpbRemovalDelay,
                                      pCtx->pPicStatus->uDpbOutputDelay, pCtx->pPicStatus->ePicStruct);
-      uFlags &= ~AL_SEI_PT;
+      eFlags &= ~AL_SEI_PT;
     }
-    else if(uFlags & AL_SEI_MDCV)
+    else if(eFlags & AL_SEI_MDCV)
     {
       Rtos_Assert(pCtx->pHDRSEIs);
       writer->WriteSEI_MasteringDisplayColourVolume(bitstream, &pCtx->pHDRSEIs->tMDCV);
-      uFlags &= ~AL_SEI_MDCV;
+      eFlags &= ~AL_SEI_MDCV;
     }
-    else if(uFlags & AL_SEI_CLL)
+    else if(eFlags & AL_SEI_CLL)
     {
       Rtos_Assert(pCtx->pHDRSEIs);
       writer->WriteSEI_ContentLightLevel(bitstream, &pCtx->pHDRSEIs->tCLL);
-      uFlags &= ~AL_SEI_CLL;
+      eFlags &= ~AL_SEI_CLL;
     }
-    else if(uFlags & AL_SEI_ATC)
+    else if(eFlags & AL_SEI_ATC)
     {
       Rtos_Assert(pCtx->pHDRSEIs);
       writer->WriteSEI_AlternativeTransferCharacteristics(bitstream, &pCtx->pHDRSEIs->tATC);
-      uFlags &= ~AL_SEI_ATC;
+      eFlags &= ~AL_SEI_ATC;
     }
-    else if(uFlags & AL_SEI_ST2094_10)
+    else if(eFlags & AL_SEI_ST2094_10)
     {
       Rtos_Assert(pCtx->pHDRSEIs);
       writer->WriteSEI_ST2094_10(bitstream, &pCtx->pHDRSEIs->tST2094_10);
-      uFlags &= ~AL_SEI_ST2094_10;
+      eFlags &= ~AL_SEI_ST2094_10;
     }
-    else if(uFlags & AL_SEI_ST2094_40)
+    else if(eFlags & AL_SEI_ST2094_40)
     {
       Rtos_Assert(pCtx->pHDRSEIs);
       writer->WriteSEI_ST2094_40(bitstream, &pCtx->pHDRSEIs->tST2094_40);
-      uFlags &= ~AL_SEI_ST2094_40;
+      eFlags &= ~AL_SEI_ST2094_40;
     }
 
-    if(!uFlags)
+    if(eFlags == AL_SEI_NONE)
       AL_RbspEncoding_CloseSEI(bitstream);
   }
 }
@@ -144,16 +144,16 @@ AL_TNalUnit AL_CreateSeiPrefix(AL_TSeiPrefixCtx* ctx, int32_t nut, int32_t layer
   return nal;
 }
 
-static void seiPrefixUDUWrite(IRbspWriter* writer, AL_TBitStreamLite* bitstream, void const* param, int32_t layerId)
+static void allegroNumSlicesSeiWrite(IRbspWriter* writer, AL_TBitStreamLite* bitstream, void const* param, int32_t layerId)
 {
   (void)layerId;
-  AL_TSeiPrefixUDUCtx* pCtx = (AL_TSeiPrefixUDUCtx*)param;
-  writer->WriteSEI_UserDataUnregistered(bitstream, pCtx->uuid, pCtx->numSlices);
+  AL_TAllegroNumSlicesSeiCtx* pCtx = (AL_TAllegroNumSlicesSeiCtx*)param;
+  writer->WriteSEI_AllegroNumSlices(bitstream, pCtx->numSlices);
 }
 
-AL_TNalUnit AL_CreateSeiPrefixUDU(AL_TSeiPrefixUDUCtx* ctx, int32_t nut, int32_t layerId, int32_t tempId)
+AL_TNalUnit AL_CreateAllegroNumSlicesSei(AL_TAllegroNumSlicesSeiCtx* ctx, int32_t nut, int32_t layerId, int32_t tempId)
 {
-  AL_TNalUnit nal = AL_CreateNalUnit(&seiPrefixUDUWrite, ctx, nut, 0, layerId, tempId);
+  AL_TNalUnit nal = AL_CreateNalUnit(&allegroNumSlicesSeiWrite, ctx, nut, 0, layerId, tempId);
   return nal;
 }
 

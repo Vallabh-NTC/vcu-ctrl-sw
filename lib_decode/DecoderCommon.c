@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "DecoderCommon.h"
@@ -43,11 +43,8 @@ bool AL_Decoder_AllocPool(AL_TDecCtx* pCtx, AL_TDecoderPoolSizes const* pSizes)
   int32_t iPoolSize = pCtx->bStillPictureProfile ? 1 : pCtx->iStackSize;
 
   AL_ECodec const eCodec = pCtx->pChanParam->eCodec;
-  AL_TPicFormat tPicFormat = GetDefaultPicFormat();
-  tPicFormat.eChromaMode = pCtx->tCurrentStreamSettings.eChroma;
-  tPicFormat.ePlaneMode = GetInternalBufPlaneMode(pCtx->tCurrentStreamSettings.eChroma);
   uint8_t uMaxRef = AL_MAX_REF;
-  const uint32_t uRefListSize = AL_GetRefListOffsets(NULL, eCodec, &tPicFormat, uMaxRef, sizeof(AL_PADDR));
+  uint32_t const uRefListSize = AL_GetRefListOffsets(NULL, eCodec, pCtx->tCurrentStreamSettings.eChroma, uMaxRef, sizeof(AL_PADDR));
 
   // Alloc Decoder buffers
   for(int32_t i = 0; i < iPoolSize; ++i)

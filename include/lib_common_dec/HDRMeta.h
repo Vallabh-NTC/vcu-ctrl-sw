@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -29,6 +29,7 @@ typedef struct AL_THDRMetaData
    \return Pointer to an HDR Metadata if success, NULL otherwise
 *****************************************************************************/
 AL_THDRMetaData* AL_HDRMetaData_Create(void);
+AL_THDRMetaData* AL_HDRMetaData_Clone(AL_THDRMetaData const* pMeta);
 
 /*****************************************************************************
    \brief Reset an HDR MetaData
@@ -41,6 +42,6 @@ void AL_HDRMetaData_Reset(AL_THDRMetaData* pMeta);
    \param[in] pMetaSrc Pointer to the source HDR Metadata
    \param[in] pMetaDst Pointer to the destination HDR Metadata
 *****************************************************************************/
-void AL_HDRMetaData_Copy(AL_THDRMetaData* pMetaSrc, AL_THDRMetaData* pMetaDst);
+void AL_HDRMetaData_Copy(AL_THDRMetaData const* pMetaSrc, AL_THDRMetaData* pMetaDst);
 
 /*!@}*/

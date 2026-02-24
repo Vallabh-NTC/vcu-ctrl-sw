@@ -11,7 +11,8 @@ LIB_DECODE_SRC+=\
   lib_decode/I_DecScheduler.c\
   lib_decode/DecSettings.c\
   lib_decode/SearchDecUnit.c\
-  lib_decode/DecoderCommon.c
+  lib_decode/DecoderCommon.c\
+  lib_decode/DecSchedulerCommon.c
 
 
 ifneq ($(ENABLE_DEC_ITU), 0)

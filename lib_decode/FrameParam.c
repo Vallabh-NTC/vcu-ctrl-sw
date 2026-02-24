@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -11,36 +11,7 @@
 #include "FrameParam.h"
 
 #include "lib_common_dec/DecSliceParam.h"
-
-/******************************************************************************/
-static void FillRefPicID(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam)
-{
-  AL_TDpb* pDpb = (AL_TDpb*)pCtx->PictMngr.pRefMngr;
-  TBufferListRef* pListRef = &pCtx->ListRef;
-
-  // Reg 9 ~ C
-  for(uint8_t uRef = 0; uRef < AL_MAX_REF; ++uRef)
-  {
-    uint8_t uNodeIDL0 = (*pListRef)[0][uRef].tNodeID;
-    uint8_t uNodeIDL1 = (*pListRef)[1][uRef].tNodeID;
-    pSliceParam->pPicIdL0s[uRef] = (uNodeIDL0 == 0xFF) ? 0x00 : AL_Dpb_GetPicID_FromNode(pDpb, uNodeIDL0);
-    pSliceParam->pPicIdL1s[uRef] = (uNodeIDL1 == 0xFF) ? 0x00 : AL_Dpb_GetPicID_FromNode(pDpb, uNodeIDL1);
-  }
-}
-
-/******************************************************************************/
-static void FillConcealValue(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam)
-{
-  AL_TDpb* pDpb = (AL_TDpb*)pCtx->PictMngr.pRefMngr;
-
-  if(pDpb->tLastPOCNodeID == AL_BAD_INDEX)
-    pSliceParam->bValidConceal = false;
-  else
-  {
-    pSliceParam->bValidConceal = true;
-    pSliceParam->tColocPicID = pDpb->Nodes[pDpb->tLastPOCNodeID].tPicID;
-  }
-}
+#include "lib_common/Index.h"
 
 /******************************************************************************/
 int32_t AL_AVC_GetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields)
@@ -173,23 +144,6 @@ void AL_AVC_FillSliceParameters(const AL_TAvcSliceHdr* pSlice, const AL_TDecCtx*
 
   pSliceParam->bDependentSlice = false;
 
-}
-
-/******************************************************************************/
-void AL_AVC_FillSlicePicIdRegister(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam)
-{
-  AL_TDpb* pDpb = (AL_TDpb*)pCtx->PictMngr.pRefMngr;
-  TBufferListRef* pListRef = &pCtx->ListRef;
-
-  FillRefPicID(pCtx, pSliceParam);
-
-  // Reg 0x12
-  pSliceParam->tColocPicID = 0;
-
-  if(pSliceParam->eSliceType == AL_SLICE_B)
-    pSliceParam->tColocPicID = AL_Dpb_GetPicID_FromNode(pDpb, (*pListRef)[1][0].tNodeID);
-
-  FillConcealValue(pCtx, pSliceParam);
 }
 
 /******************************************************************************/
@@ -350,26 +304,6 @@ void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCt
 
   for(int32_t i = 1; i <= pSlice->num_entry_point_offsets; ++i)
     pSliceParam->pEntryPointOffsets[i] = pSlice->entry_point_offset_minus1[i] + 1;
-}
-
-/******************************************************************************/
-void AL_HEVC_FillSlicePicIdRegister(const AL_THevcSliceHdr* pSlice, AL_TDecCtx* pCtx, AL_TDecPicParam* pPicParam, AL_TDecSliceParam* pSliceParam)
-{
-  TBufferListRef* pListRef = &pCtx->ListRef;
-  AL_TDpb* pDpb = (AL_TDpb*)pCtx->PictMngr.pRefMngr;
-
-  FillRefPicID(pCtx, pSliceParam);
-
-  if(!pSliceParam->uFirstLcuSlice)
-    pPicParam->tColocPicID = AL_BAD_INDEX;
-
-  // Reg 0x12
-  if((pSliceParam->eSliceType == AL_SLICE_B && pSlice->collocated_from_l0_flag) || pSliceParam->eSliceType == AL_SLICE_P)
-    pPicParam->tColocPicID = AL_Dpb_GetPicID_FromNode(pDpb, (*pListRef)[0][pSlice->collocated_ref_idx].tNodeID);
-  else if(pSliceParam->eSliceType == AL_SLICE_B)
-    pPicParam->tColocPicID = AL_Dpb_GetPicID_FromNode(pDpb, (*pListRef)[1][pSlice->collocated_ref_idx].tNodeID);
-
-  FillConcealValue(pCtx, pSliceParam);
 }
 
 /*!@}*/

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <algorithm>
@@ -16,6 +16,8 @@ extern "C"
 #include "lib_common/PicFormat.h"
 #include "lib_common/Round.h"
 #include "lib_rtos/utils.h"
+#include "lib_common/AvcLevels.h"
+#include "lib_common/HevcLevels.h"
 }
 
 using namespace std;
@@ -225,21 +227,17 @@ static void ParsePreAllocArgs(AL_TStreamSettings* settings, AL_ECodec codec, str
     GetExpectedSeparator(ss, ':');
     ss >> settings->iMaxRef;
   }
-  switch(codec)
+
+  if(codec == AL_CODEC_AVC)
   {
-  case AL_CODEC_AVC:
-  case AL_CODEC_HEVC:
-
-    if(settings->iLevel < 10 || settings->iLevel > 62)
+    if(!AL_AVC_IsLevel(settings->iLevel))
       throw runtime_error("The level does not match the codec");
-    break;
-  case AL_CODEC_VVC:
+  }
 
-    if(settings->iLevel < 10 || settings->iLevel > 63)
+  if(codec == AL_CODEC_HEVC)
+  {
+    if(!AL_HEVC_IsLevel(settings->iLevel))
       throw runtime_error("The level does not match the codec");
-    break;
-  default:
-    break;
   }
 
   if(string(chroma) == "400")
@@ -357,11 +355,11 @@ Config ParseCommandLine(int32_t argc, char* argv[])
   opt.addString("--output,--out,-out,--o,-o", &config.sMainOut, "Output YUV");
 
   opt.addFlag("--avc,-avc", &config.tDecSettings.eCodec,
-              "Specify the input bitstream codec (default: HEVC)",
+              string("Specify the input bitstream codec (default: ") + string(AL_CodecToString(AL_DEC_DEFAULT_CODEC)) + string(")"),
               AL_CODEC_AVC);
 
   opt.addFlag("--hevc,-hevc", &config.tDecSettings.eCodec,
-              "Specify the input bitstream codec (default: HEVC)",
+              string("Specify the input bitstream codec (default: ") + string(AL_CodecToString(AL_DEC_DEFAULT_CODEC)) + string(")"),
               AL_CODEC_HEVC);
   opt.addInt("--framerate,--fps,-fps", &fps, "force framerate");
   opt.addCustom("--clock,--clk,-clk", &config.tDecSettings.uClkRatio, &IntWithOffset<1000>, "Set clock ratio, (0 for 1000, 1 for 1001)", "number");
@@ -415,7 +413,7 @@ Config ParseCommandLine(int32_t argc, char* argv[])
   bool dummyNextChan; // As the --next-channel is parsed elsewhere, this option is only used to add the description in the usage
   opt.addFlag("--next-chan", &dummyNextChan, "Start the configuration of a new decoding channel. The options that are applied on all channels must be specified in the first channel.");
 
-  opt.addCustom("--exit-on", &config.eExitCondition, ParseExitOn, "Specifify early exit condition (e/error, w/warning)");
+  opt.addCustom("--exit-on", &config.eExitCondition, ParseExitOn, "Specify early exit condition (e/error, w/warning)");
 
   opt.startSection("Trace && Debug");
 

@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 #include "lib_rtos/types.h"
+#include "lib_common/Index.h"
 
 /*****************************************************************************
   Not thread-safe implementation
@@ -11,8 +12,8 @@
 typedef struct
 {
   int32_t* elements;
-  int32_t head;
-  int32_t tail;
+  AL_TIndex head;
+  AL_TIndex tail;
   int32_t total_elements;
 }IntFifo;
 

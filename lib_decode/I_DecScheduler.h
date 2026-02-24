@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -33,38 +33,43 @@ typedef struct
   void* userParam;
 }AL_TDecScheduler_CB_EndDecoding;
 
+/****************************************************************************/
 typedef struct
 {
-  void (* func)(void* pUserParam, AL_TScStatus const* pScdStatus);
+  void (* func)(void* pUserParam, AL_TStartCodeStatus const* pScdStatus);
   void* userParam;
 }AL_TDecScheduler_CB_EndStartCode;
 
-typedef struct
+/****************************************************************************/
+typedef struct AL_IDecSchedulerChanParams
 {
-  void (* func)(void* pUserParam);
-  void* userParam;
-}AL_TDecScheduler_CB_DestroyChannel;
+  AL_TMemDesc* pMDChParams;
+  AL_TDecScheduler_CB_EndParsing endParsingCallback;
+  AL_TDecScheduler_CB_EndDecoding endDecodingCallback;
+}AL_IDecSchedulerChanParams;
 
 /****************************************************************************/
 typedef struct AL_IDecSchedulerVtable AL_IDecSchedulerVtable;
 
+/****************************************************************************/
 typedef struct AL_IDecScheduler
 {
   const AL_IDecSchedulerVtable* vtable;
 }AL_IDecScheduler;
 
+/****************************************************************************/
 typedef struct AL_IDecSchedulerVtable
 {
   void (* Destroy)(AL_IDecScheduler* pScheduler);
 
   AL_ERR (* CreateStartCodeChannel)(AL_HANDLE* hStartCodeChannel, AL_IDecScheduler* pScheduler);
-  AL_ERR (* CreateChannel)(AL_HANDLE* hChannel, AL_IDecScheduler* pScheduler, AL_TMemDesc* pMDChParams, AL_TDecScheduler_CB_EndParsing endParsingCallback, AL_TDecScheduler_CB_EndDecoding endDecodingCallback);
+  AL_ERR (* CreateChannel)(AL_HANDLE* hChannel, AL_IDecScheduler* pScheduler, AL_IDecSchedulerChanParams* pChanParams);
   AL_ERR (* DestroyStartCodeChannel)(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel);
   AL_ERR (* DestroyChannel)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel);
 
-  void (* SearchSC)(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel, AL_TScParam* pScParam, AL_TScBufferAddrs* pBufferAddrs, AL_TDecScheduler_CB_EndStartCode callback);
-  void (* DecodeOneFrame)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* pSliceParams);
-  void (* DecodeOneSlice)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* pSliceParams);
+  void (* SearchSC)(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel, AL_TStartCodeParam* pStartCodeParam, AL_TStartCodeBufferAddrs* pBufferAddrs, AL_TDecScheduler_CB_EndStartCode callback);
+  void (* DecodeOneFrame)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* pSliceParams);
+  void (* DecodeOneSlice)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* pSliceParams);
   void (* Get)(AL_IDecScheduler const* pScheduler, AL_EIDecSchedulerInfo info, void* pParam);
   void (* Set)(AL_IDecScheduler* pScheduler, AL_EIDecSchedulerInfo info, void const* pParam);
   void (* InternalSet)(AL_IDecScheduler* pScheduler, AL_EIDecSchedulerInternalInfo info, void const* pParam);
@@ -82,9 +87,9 @@ typedef struct AL_IDecSchedulerVtable
    or AL_SUCCESS (See include/lib_common/Error.h)
 *****************************************************************************/
 static inline
-AL_ERR AL_IDecScheduler_CreateChannel(AL_HANDLE* hChannel, AL_IDecScheduler* pThis, AL_TMemDesc* pMDChParams, AL_TDecScheduler_CB_EndParsing endParsingCallback, AL_TDecScheduler_CB_EndDecoding endDecodingCallback)
+AL_ERR AL_IDecScheduler_CreateChannel(AL_HANDLE* hChannel, AL_IDecScheduler* pThis, AL_IDecSchedulerChanParams* pChanParams)
 {
-  return pThis->vtable->CreateChannel(hChannel, pThis, pMDChParams, endParsingCallback, endDecodingCallback);
+  return pThis->vtable->CreateChannel(hChannel, pThis, pChanParams);
 }
 
 /*****************************************************************************
@@ -131,15 +136,15 @@ AL_ERR AL_IDecScheduler_DestroyChannel(AL_IDecScheduler* pThis, AL_HANDLE hChann
 /*****************************************************************************
    \brief Asks the scheduler to process a start code detection
    \param[in] pThis Decoder scheduler interface
-   \param[in] pScParam Pointer to the start code detector parameters
+   \param[in] pStartCodeParam Pointer to the start code detector parameters
    \param[in] pBufferAddrs Pointer to the start code detectors buffers
    \param[in] callback Start code callback structure
    \return return true
 *****************************************************************************/
 static inline
-void AL_IDecScheduler_SearchSC(AL_IDecScheduler* pThis, AL_HANDLE hStartCodeChannel, AL_TScParam* pScParam, AL_TScBufferAddrs* pBufferAddrs, AL_TDecScheduler_CB_EndStartCode callback)
+void AL_IDecScheduler_SearchSC(AL_IDecScheduler* pThis, AL_HANDLE hStartCodeChannel, AL_TStartCodeParam* pStartCodeParam, AL_TStartCodeBufferAddrs* pBufferAddrs, AL_TDecScheduler_CB_EndStartCode callback)
 {
-  pThis->vtable->SearchSC(pThis, hStartCodeChannel, pScParam, pBufferAddrs, callback);
+  pThis->vtable->SearchSC(pThis, hStartCodeChannel, pStartCodeParam, pBufferAddrs, callback);
 }
 
 /*****************************************************************************
@@ -151,9 +156,9 @@ void AL_IDecScheduler_SearchSC(AL_IDecScheduler* pThis, AL_HANDLE hStartCodeChan
               false otherwise
 *****************************************************************************/
 static inline
-void AL_IDecScheduler_DecodeOneFrame(AL_IDecScheduler* pThis, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* pSliceParams)
+void AL_IDecScheduler_DecodeOneFrame(AL_IDecScheduler* pThis, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* pSliceParams)
 {
-  pThis->vtable->DecodeOneFrame(pThis, hChannel, pPictParam, pPictAddrs, pSliceParams);
+  pThis->vtable->DecodeOneFrame(pThis, hChannel, pPictParam, pPictBuffers, pSliceParams);
 }
 
 /*****************************************************************************
@@ -165,9 +170,9 @@ void AL_IDecScheduler_DecodeOneFrame(AL_IDecScheduler* pThis, AL_HANDLE hChannel
               false otherwise
 *****************************************************************************/
 static inline
-void AL_IDecScheduler_DecodeOneSlice(AL_IDecScheduler* pThis, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBufferAddrs* pPictAddrs, AL_TMemDesc* pSliceParams)
+void AL_IDecScheduler_DecodeOneSlice(AL_IDecScheduler* pThis, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecBuffers* pPictBuffers, AL_TMemDesc* pSliceParams)
 {
-  pThis->vtable->DecodeOneSlice(pThis, hChannel, pPictParam, pPictAddrs, pSliceParams);
+  pThis->vtable->DecodeOneSlice(pThis, hChannel, pPictParam, pPictBuffers, pSliceParams);
 }
 
 /*****************************************************************************

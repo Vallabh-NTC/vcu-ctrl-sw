@@ -1,20 +1,21 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
+#include "lib_buf_mngt/FrmBuf.h"
 #include "lib_common/SliceConsts.h"
 #include "lib_common/BufConst.h"
 #include "lib_common/Error.h"
 #include "lib_common_enc/EncChanParam.h"
 #include "lib_common/BufferAPI.h"
 #include "lib_common_enc/RateCtrlStats.h"
-#include "lib_common/AomDefinesInternal.h"
+#include "lib_rtos/types.h"
 
 /*****************************************************************************
    \brief Encoding tool enum
 *****************************************************************************/
-typedef enum
+typedef enum AL_EPicEncOption
 {
   AL_OPT_USE_QP_TABLE = 0x0001,
   AL_OPT_FORCE_LOAD = 0x0002,
@@ -23,7 +24,7 @@ typedef enum
   AL_OPT_DEPENDENT_SLICES = 0x0010,
 }AL_EPicEncOption;
 
-typedef struct
+typedef struct AL_TEncInfo
 {
   AL_EPicEncOption eEncOptions;
   uint8_t uPpsId;
@@ -57,7 +58,7 @@ typedef enum
   AL_OPT_RECOVERY_POINT = 0x10000,
 }AL_ERequestEncOption;
 
-typedef struct
+typedef struct AL_TDynResParams
 {
   AL_TDimension tInputResolution;
 }AL_TDynResParams;
@@ -131,7 +132,7 @@ typedef struct
   bool bIsLastSlice;
   int16_t iPpsQP;
   int32_t iRecoveryCnt;
-  uint8_t uTempId;
+  uint8_t uTemporalId;
   int32_t iPOC;
 
   uint16_t uEncWidth;

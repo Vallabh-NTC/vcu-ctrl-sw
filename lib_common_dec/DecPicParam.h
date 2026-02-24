@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "lib_rtos/types.h"
 #include "lib_common/BufCommonInternal.h"
 #include "lib_common/SliceConsts.h"
-#include "lib_common_dec/Types.h"
+#include "lib_common/Index.h"
 
 /*****************************************************************************/
 #define AL_DEC_OPT_EnableSclLst 0x00000001
@@ -210,6 +210,7 @@ typedef struct AL_TDecBufferAddrs
   AL_PADDR pMV;
   AL_PADDR pWP;
   AL_TDecPictBufferAddrs tDecBuffers;
+
 }AL_TDecBufferAddrs;
 
 /*****************************************************************************/

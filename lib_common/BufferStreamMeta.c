@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferStreamMeta.h"
@@ -12,7 +12,7 @@ static bool StreamMeta_Destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData* pMeta)
+AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -32,9 +32,9 @@ AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData* pMeta)
   return pNewMeta;
 }
 
-AL_TMetaData* StreamMeta_Clone(AL_TMetaData* pMeta)
+AL_TMetaData* StreamMeta_Clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_StreamMetaData_Clone((AL_TStreamMetaData*)pMeta);
+  return (AL_TMetaData*)AL_StreamMetaData_Clone((AL_TStreamMetaData const*)pMeta);
 }
 
 AL_TStreamMetaData* AL_StreamMetaData_Create(uint16_t uMaxNumSection)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -29,6 +29,7 @@ typedef enum AL_ECodecHook
   AL_HOOK_DBE,
   AL_HOOK_SPP,
   AL_HOOK_AOM,
+  AL_HOOK_AOM_CG,
   AL_HOOK_TOP,
   AL_HOOK_A2P,
   AL_HOOK_JPEGXS,

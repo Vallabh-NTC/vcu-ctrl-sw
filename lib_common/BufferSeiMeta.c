@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferSeiMeta.h"
@@ -13,7 +13,7 @@ static bool destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TSeiMetaData* AL_SeiMetaData_Clone(AL_TSeiMetaData* pMeta)
+AL_TSeiMetaData* AL_SeiMetaData_Clone(AL_TSeiMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -26,9 +26,9 @@ AL_TSeiMetaData* AL_SeiMetaData_Clone(AL_TSeiMetaData* pMeta)
   return pSeiMeta;
 }
 
-static AL_TMetaData* clone(AL_TMetaData* pMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_SeiMetaData_Clone((AL_TSeiMetaData*)pMeta);
+  return (AL_TMetaData*)AL_SeiMetaData_Clone((AL_TSeiMetaData const*)pMeta);
 }
 
 AL_TSeiMetaData* AL_SeiMetaData_Create(uint8_t uMaxPayload, uint32_t uMaxBufSize)

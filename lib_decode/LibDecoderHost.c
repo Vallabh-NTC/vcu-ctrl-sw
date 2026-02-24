@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/PicFormat.h"
@@ -97,7 +97,7 @@ static void AL_Decoder_Flush_Host(AL_HDecoder hDec)
 /*****************************************************************************/
 static bool AL_Decoder_PutDisplayPicture_Host(AL_HDecoder hDec, AL_TBuffer* pDisplay)
 {
-  return AL_Default_Decoder_PutDecPict((AL_TDecoder*)hDec, pDisplay);
+  return AL_Default_Decoder_PutDecPict((AL_TDecoder*)hDec, 0, pDisplay);
 }
 
 /*****************************************************************************/

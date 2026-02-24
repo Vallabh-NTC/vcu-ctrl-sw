@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <cstdlib>
@@ -26,7 +26,7 @@ extern "C"
 using namespace std;
 
 /******************************************************************************/
-void DisplayFrameStatus(int32_t iFrameNum)
+void DisplayFrameStatus(AL_64S iFrameNum)
 {
   (void)iFrameNum;
 #if VERBOSE_MODE
@@ -38,23 +38,23 @@ void DisplayFrameStatus(int32_t iFrameNum)
 }
 
 /*****************************************************************************/
-uint32_t ReadNextFrame(ifstream& File)
+AL_64U ReadNextFrame(ifstream& File)
 {
   string sLine;
 
   getline(File, sLine);
 
   if(File.fail())
-    return UINT32_MAX;
+    return UINT64_MAX;
 
   return atoi(sLine.c_str());
 }
 
 /*****************************************************************************/
-uint32_t ReadNextFrameMV(ifstream& File, int& iX, int& iY)
+AL_64U ReadNextFrameMV(ifstream& File, int& iX, int& iY)
 {
   string sLine, sVal;
-  int32_t iFrame = 0;
+  AL_64S iFrame = 0;
   iX = iY = 0;
   getline(File, sLine);
   stringstream ss(sLine);
@@ -82,7 +82,7 @@ uint32_t ReadNextFrameMV(ifstream& File, int& iX, int& iY)
   while(!(ss.rdbuf()->in_avail() == 0));
 
   if(File.fail())
-    return UINT32_MAX;
+    return UINT64_MAX;
 
   return iFrame - 1;
 }

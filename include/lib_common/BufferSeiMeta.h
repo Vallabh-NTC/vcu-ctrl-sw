@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -36,7 +36,7 @@ typedef struct AL_TSeiMetaData
    \brief Create a sei metadata.
 *****************************************************************************/
 AL_TSeiMetaData* AL_SeiMetaData_Create(uint8_t uMaxPayload, uint32_t uMaxBufSize);
-AL_TSeiMetaData* AL_SeiMetaData_Clone(AL_TSeiMetaData* pMeta);
+AL_TSeiMetaData* AL_SeiMetaData_Clone(AL_TSeiMetaData const* pMeta);
 bool AL_SeiMetaData_AddPayload(AL_TSeiMetaData* pMeta, AL_TSeiMessage payload);
 uint8_t* AL_SeiMetaData_GetBuffer(AL_TSeiMetaData* pMeta);
 void AL_SeiMetaData_Reset(AL_TSeiMetaData* pMeta);

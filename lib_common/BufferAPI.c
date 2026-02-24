@@ -1,49 +1,31 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
+#include "lib_rtos/lib_rtos.h"
 #include "lib_common/BufferAPIInternal.h"
 #include "lib_common/BufCommonInternal.h"
 #include "lib_common/BufCommon.h"
 
-#define AL_BUFFER_META_ALLOC_COUNT 4
-// Maximum "estimated" number of metadata for user
+// Maximum "estimated" number of metadata for user. It can be modified
 #define AL_BUFFER_USER_META_MAX_COUNT 20
 #define AL_BUFFER_META_MAX_COUNT (AL_META_TYPE_MAX + AL_BUFFER_USER_META_MAX_COUNT)
 
 typedef struct AL_TBufferImpl
 {
-  AL_TBuffer buf;
+  AL_TBuffer tBuf;
   AL_MUTEX pLock;
-  int32_t iRefCount;
+  Rtos_AtomicVolatileType iRefCount;
 
-  AL_TMetaData** pMeta;
+  AL_TMetaData* pMeta[AL_BUFFER_USER_META_MAX_COUNT];
   int32_t iMetaCount;
-  int32_t iAllocatedMetaCount;
 
   void* pUserData; /*!< user private data */
   PFN_RefCount_CallBack pCallBack; /*!< user callback. called when the buffer refcount reaches 0 */
 }AL_TBufferImpl;
 
-static void* Realloc(void* pPtr, size_t zOldSize, size_t zNewSize)
-{
-  void* pNewPtr = Rtos_Malloc(zNewSize);
-
-  if(!pNewPtr)
-    return NULL;
-
-  if(pPtr)
-  {
-    size_t zSizeToCopy = zOldSize < zNewSize ? zOldSize : zNewSize;
-    Rtos_Memcpy(pNewPtr, pPtr, zSizeToCopy);
-    Rtos_Free(pPtr);
-  }
-
-  return pNewPtr;
-}
-
 static bool isMaxChunkReached(AL_TBufferImpl* pBuf)
 {
-  return pBuf->buf.iChunkCnt >= AL_BUFFER_MAX_CHUNK;
+  return pBuf->tBuf.iChunkCnt >= AL_BUFFER_MAX_CHUNK;
 }
 
 static inline int8_t addBufferChunk(AL_TBufferImpl* pBuf, AL_HANDLE hChunk, size_t zSize)
@@ -51,50 +33,41 @@ static inline int8_t addBufferChunk(AL_TBufferImpl* pBuf, AL_HANDLE hChunk, size
   if(zSize && !hChunk)
     return AL_BUFFER_BAD_CHUNK;
 
-  int32_t iChunkIdx = pBuf->buf.iChunkCnt;
-  pBuf->buf.hBufs[iChunkIdx] = hChunk;
-  pBuf->buf.zSizes[iChunkIdx] = zSize;
-  pBuf->buf.iChunkCnt++;
+  int32_t iChunkIdx = pBuf->tBuf.iChunkCnt;
+  pBuf->tBuf.hBufs[iChunkIdx] = hChunk;
+  pBuf->tBuf.zSizes[iChunkIdx] = zSize;
+  pBuf->tBuf.iChunkCnt++;
 
   return iChunkIdx;
 }
 
 static bool initData(AL_TBufferImpl* pBuf, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pCallBack)
 {
-  pBuf->buf.pAllocator = pAllocator;
-  pBuf->pCallBack = pCallBack;
-  pBuf->pUserData = NULL;
-  pBuf->pMeta = NULL;
-  pBuf->iMetaCount = 0;
-  pBuf->iAllocatedMetaCount = 0;
-  pBuf->iRefCount = 0;
-  pBuf->buf.iChunkCnt = 0;
-  Rtos_Memset(pBuf->buf.zSizes, 0, sizeof(pBuf->buf.zSizes));
-  Rtos_Memset(pBuf->buf.hBufs, 0, sizeof(pBuf->buf.hBufs));
-
   pBuf->pLock = Rtos_CreateMutex();
 
-  if(!pBuf->pLock)
+  if(pBuf->pLock == NULL)
     return false;
+
+  pBuf->tBuf.pAllocator = pAllocator;
+  pBuf->pCallBack = pCallBack;
 
   return true;
 }
 
 static AL_TBuffer* createEmptyBuffer(AL_TAllocator* pAllocator, PFN_RefCount_CallBack pCallBack)
 {
-  AL_TBufferImpl* pBuf = (AL_TBufferImpl*)Rtos_Malloc(sizeof(*pBuf));
+  AL_TBufferImpl* pBuf = (AL_TBufferImpl*)Rtos_Calloc(1, sizeof(*pBuf));
 
-  if(!pBuf)
+  if(pBuf == NULL)
     return NULL;
 
   if(!initData(pBuf, pAllocator, pCallBack))
-    goto fail_init_data;
+  {
+    Rtos_Free(pBuf);
+    return NULL;
+  }
 
   return (AL_TBuffer*)pBuf;
-
-  fail_init_data:
-  Rtos_Free(pBuf);
-  return NULL;
 }
 
 static AL_TBuffer* createBufferWithOneChunk(AL_TAllocator* pAllocator, AL_HANDLE hBuf, size_t zSize, PFN_RefCount_CallBack pCallBack)
@@ -125,7 +98,7 @@ int32_t AL_Buffer_AllocateChunkNamed(AL_TBuffer* hBuf, size_t zSize, char const*
   if(isMaxChunkReached(pBuf))
     return AL_BUFFER_BAD_CHUNK;
 
-  AL_HANDLE hChunk = AL_Allocator_AllocNamed(pBuf->buf.pAllocator, zSize, name);
+  AL_HANDLE hChunk = AL_Allocator_AllocNamed(pBuf->tBuf.pAllocator, zSize, name);
 
   return addBufferChunk(pBuf, hChunk, zSize);
 }
@@ -207,18 +180,14 @@ void AL_Buffer_Destroy(AL_TBuffer* hBuf)
 
   Rtos_Assert(pBuf->iRefCount == 0);
 
-  if(pBuf->pMeta)
-  {
-    for(int32_t i = 0; i < pBuf->iMetaCount; ++i)
-      AL_MetaData_Destroy(pBuf->pMeta[i]);
-
-    Rtos_Free(pBuf->pMeta);
-  }
+  for(int32_t i = 0; i < pBuf->iMetaCount; ++i)
+    AL_MetaData_Destroy(pBuf->pMeta[i]);
 
   for(int32_t i = 0; i < hBuf->iChunkCnt; ++i)
   {
     AL_HANDLE hChunk = hBuf->hBufs[i];
     AL_Allocator_Free(hBuf->pAllocator, hChunk);
+    hChunk = NULL;
   }
 
   Rtos_ReleaseMutex(pBuf->pLock);
@@ -259,7 +228,7 @@ void AL_Buffer_Unref(AL_TBuffer* hBuf)
 {
   AL_TBufferImpl* pBuf = (AL_TBufferImpl*)hBuf;
 
-  int32_t iRefCount = Rtos_AtomicDecrement(&pBuf->iRefCount);
+  Rtos_AtomicType iRefCount = Rtos_AtomicDecrement(&pBuf->iRefCount);
   Rtos_Assert(iRefCount >= 0);
 
   if(iRefCount > 0)
@@ -324,23 +293,10 @@ bool AL_Buffer_AddMetaData(AL_TBuffer* hBuf, AL_TMetaData* pMeta)
     AL_MetaData_Destroy(pOldMeta);
   }
 
-  if(pBuf->iMetaCount == pBuf->iAllocatedMetaCount)
+  if(pBuf->iMetaCount >= AL_BUFFER_META_MAX_COUNT)
   {
-    size_t const zOldSize = sizeof(AL_TMetaData*) * pBuf->iAllocatedMetaCount;
-    size_t const zNewSize = sizeof(AL_TMetaData*) * (pBuf->iAllocatedMetaCount + AL_BUFFER_META_ALLOC_COUNT);
-
-    AL_TMetaData** pNewBuffer = (AL_TMetaData**)Realloc(pBuf->pMeta, zOldSize, zNewSize);
-
-    if(!pNewBuffer)
-    {
-      Rtos_ReleaseMutex(pBuf->pLock);
-      return false;
-    }
-
-    pBuf->iAllocatedMetaCount += AL_BUFFER_META_ALLOC_COUNT;
-    pBuf->pMeta = pNewBuffer;
-
-    Rtos_Assert(pBuf->iAllocatedMetaCount < AL_BUFFER_META_MAX_COUNT);
+    Rtos_ReleaseMutex(pBuf->pLock);
+    return false;
   }
 
   pBuf->pMeta[pBuf->iMetaCount] = pMeta;
@@ -457,14 +413,25 @@ static void BufferForEachChunk(AL_TBuffer const* pBuf, BufferChunkCB pfnChunkCB)
   }
 }
 
+// Type compliant callback
+static void InvalidateCacheMemoryBufferChunkCB(uint8_t* pChunk, size_t zChunkSize)
+{
+  Rtos_InvalidateCacheMemory((void*)pChunk, zChunkSize);
+}
+
+static void FlushCacheMemoryBufferChunkCB(uint8_t* pChunk, size_t zChunkSize)
+{
+  Rtos_FlushCacheMemory((void*)pChunk, zChunkSize);
+}
+
 void AL_Buffer_InvalidateMemory(AL_TBuffer const* pBuf)
 {
-  BufferForEachChunk(pBuf, (BufferChunkCB)Rtos_InvalidateCacheMemory);
+  BufferForEachChunk(pBuf, InvalidateCacheMemoryBufferChunkCB);
 }
 
 void AL_Buffer_FlushMemory(AL_TBuffer const* pBuf)
 {
-  BufferForEachChunk(pBuf, (BufferChunkCB)Rtos_FlushCacheMemory);
+  BufferForEachChunk(pBuf, FlushCacheMemoryBufferChunkCB);
 }
 
 void AL_Buffer_Cleanup(AL_TBuffer* pBuf)

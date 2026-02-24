@@ -935,6 +935,7 @@ YYYY-MM-DD (v1.0.??)
     -- Move all lib_conv_yuv into lib_app
       - Remove duplicated files
       - Several files renames
+    -- Interface files is now called I_<Abstraction>.<extension>
 
   Fixes:
     -- Minors bug and typos fixes and types

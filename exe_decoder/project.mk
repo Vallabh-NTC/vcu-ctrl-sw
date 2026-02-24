@@ -22,16 +22,6 @@ endif
 EXE_DECODER_OBJ:=$(EXE_DECODER_SRC:%=$(BIN)/%.o)
 
 
-ifneq ($(ENABLE_SH_TESTS),0)
-TEST_TARGETS+=$(BIN)/AL_Decoder.test
-
-AL_Decoder.test: $(BIN)/AL_Decoder.test
-
-$(BIN)/AL_Decoder.test: $(THIS_EXE_DECODER)/tests.sh $(BIN)/AL_Decoder.exe
-	@echo "TEST $<"
-	@rm -f $@
-	@$(TEST)/run.sh -b $(BIN) -h $< > $@.failed && mv $@.failed $@
-endif
 
 $(BIN)/AL_Decoder.exe: $(EXE_DECODER_OBJ) $(LIB_REFDEC_A) $(LIB_REFALLOC_A) $(LIB_DECODER_A) $(LIB_APP_A) $(LIB_REFFBC_A) $(LIB_REF_LCEVC_DEC_A) $(LIB_LCEVC_DECODE_A)
 

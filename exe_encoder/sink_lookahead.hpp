@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -150,9 +150,9 @@ private:
   std::unique_ptr<IFrameSink> m_pBitstreamOutput;
   std::unique_ptr<IFrameSink> m_pRecOutput;
 
-  int32_t m_iPicCount = 0;
-  int32_t m_iMaxpicCount = -1;
-  int32_t m_iPictureType = -1;
+  AL_64S m_iPicCount = 0;
+  AL_64S m_iMaxpicCount = -1;
+  AL_64S m_iPictureType = -1;
   std::ifstream m_cmdFile;
   CEncCmdMngr m_encCmd;
   ConfigFile m_cfgLA;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -27,7 +27,9 @@
 #define HEVC_PROFILE_IDC_MAIN_STILL 3
 #define HEVC_PROFILE_IDC_RExt 4
 
-/****************************************************************************/
+/*****************************************************************************
+   \brief Codec identifier
+*****************************************************************************/
 typedef enum AL_ECodec
 {
   /* assign hardware standard value */
@@ -44,6 +46,13 @@ typedef enum AL_ECodec
   AL_CODEC_JPEG_XS = 10,
   AL_CODEC_INVALID, /* sentinel */
 }AL_ECodec;
+
+/******************************************************************************
+   \brief Get a string corresponding to a codec
+   \param[in] eCodec The codec to get a string description from
+   \return a string describing the codec
+******************************************************************************/
+char const* AL_CodecToString(AL_ECodec eCodec);
 
 /*****************************************************************************
    \brief Profiles identifier
@@ -139,6 +148,7 @@ static inline bool AL_HAS_LEVEL(AL_EProfile eProfile)
   case AL_CODEC_VVC: return true;
   case AL_CODEC_AV1: return true;
   case AL_CODEC_AV2: return true;
+  case AL_CODEC_LCEVC: return true;
   default: return false;
   }
 }

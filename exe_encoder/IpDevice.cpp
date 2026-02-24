@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "IpDevice.hpp"
@@ -20,7 +20,7 @@ using namespace std;
 extern "C"
 {
 #include "lib_encode/EncSchedulerMcu.h"
-#include "lib_common/HardwareDriver.h"
+#include "lib_common/LinuxDriverCommunication.h"
 }
 
 void CIpDevice::ConfigureMcu(CIpDeviceParam& param)
@@ -32,7 +32,7 @@ void CIpDevice::ConfigureMcu(CIpDeviceParam& param)
 
   /* We lost the Linux Dma Allocator type before in an upcast,
    * but it is needed for the scheduler mcu as we need the GetFd api in it. */
-  m_pScheduler = AL_SchedulerMcu_Create(AL_GetHardwareDriver(), (AL_TLinuxDmaAllocator*)m_pAllocator.get(), param.pCfgFile->RunInfo.encDevicePaths.at(0).c_str());
+  m_pScheduler = AL_SchedulerMcu_Create(AL_GetLinuxDriverCommunication(), (AL_TLinuxDmaAllocator*)m_pAllocator.get(), param.pCfgFile->RunInfo.encDevicePaths.at(0).c_str());
 
   if(!m_pScheduler)
     throw std::runtime_error("Failed to create MCU scheduler");

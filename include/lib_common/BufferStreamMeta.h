@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -33,7 +33,7 @@ typedef struct AL_TStreamMetaData
    The user might want to add his own section and should allocate in consequence.
 *****************************************************************************/
 AL_TStreamMetaData* AL_StreamMetaData_Create(uint16_t uMaxNumSection);
-AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData* pMeta);
+AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData const* pMeta);
 
 /*****************************************************************************
    \brief Add a section to the stream. Sections represent the stream

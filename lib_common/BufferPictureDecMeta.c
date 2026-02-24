@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferPictureDecMeta.h"
@@ -11,7 +11,7 @@ static bool PictureDecMeta_Destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TPictureDecMetaData* AL_PictureDecMetaData_Clone(AL_TPictureDecMetaData* pMeta)
+AL_TPictureDecMetaData* AL_PictureDecMetaData_Clone(AL_TPictureDecMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -26,9 +26,9 @@ AL_TPictureDecMetaData* AL_PictureDecMetaData_Clone(AL_TPictureDecMetaData* pMet
   return pPictureMeta;
 }
 
-static AL_TMetaData* PictureDecMeta_Clone(AL_TMetaData* pMeta)
+static AL_TMetaData* PictureDecMeta_Clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_PictureDecMetaData_Clone((AL_TPictureDecMetaData*)pMeta);
+  return (AL_TMetaData*)AL_PictureDecMetaData_Clone((AL_TPictureDecMetaData const*)pMeta);
 }
 
 AL_TPictureDecMetaData* AL_PictureDecMetaData_Create(void)

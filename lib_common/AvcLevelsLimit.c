@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/Profiles.h"
@@ -6,18 +6,6 @@
 #include "Utils.h"
 #include "LevelLimit.h"
 #include "BufConst.h"
-
-/****************************************************************************/
-bool AL_AVC_CheckLevel(int32_t level)
-{
-  return (level == 9)
-         || ((level >= 10) && (level <= 13))
-         || ((level >= 20) && (level <= 22))
-         || ((level >= 30) && (level <= 32))
-         || ((level >= 40) && (level <= 42))
-         || ((level >= 50) && (level <= 52))
-         || ((level >= 60) && (level <= 62));
-}
 
 /****************************************************************************/
 static uint32_t AL_AVC_GetMaxMBperSec(int32_t level)

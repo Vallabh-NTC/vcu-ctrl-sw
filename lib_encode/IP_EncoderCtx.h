@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -8,7 +8,6 @@
  *****************************************************************************/
 #pragma once
 
-#include "Sections.h"
 #include "lib_encode/lib_encoder.h"
 #include "lib_rtos/lib_rtos.h"
 #include "SourceBufferChecker.h"
@@ -19,6 +18,8 @@
 #include "lib_common_enc/EncSize.h"
 #include "lib_common/Fifo.h"
 #include "lib_encode/EncUtils.h"
+
+#include "ITU_Section.h"
 
 typedef struct AL_IEncScheduler AL_IEncScheduler;
 
@@ -90,7 +91,7 @@ typedef struct
 
   AL_TCbUserParam callback_user_param;
   AL_CB_EndEncoding tEndEncodingCallback;
-}AL_TLayerCtx;
+}AL_TEncLayerCtx;
 
 typedef struct
 {
@@ -135,7 +136,7 @@ typedef struct AL_TEncCtx
 
   AL_TEncSettings* pSettings;
 
-  AL_TLayerCtx tLayerCtx[MAX_NUM_LAYER];
+  AL_TEncLayerCtx tLayerCtx[MAX_NUM_LAYER];
 
   AL_THeadersCtx tHeadersCtx[MAX_NUM_LAYER];
   AL_TVps vps;
@@ -172,6 +173,7 @@ typedef struct AL_TEncCtx
 }AL_TEncCtx;
 
 AL_HLSInfo* AL_GetHLSInfo(AL_TEncCtx* pCtx, int32_t iPicID);
+
 AL_TNalsData AL_ExtractNalsData(AL_TEncCtx* pCtx, int32_t iLayerID, int32_t iPicID);
 
 /*!@}*/

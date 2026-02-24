@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -12,6 +12,49 @@
 #include "common_syntax_elements.h"
 
 /*****************************************************************************
+   \brief SEI payload types
+*****************************************************************************/
+typedef enum
+{
+  SEI_PTYPE_BUFFERING_PERIOD = 0,
+  SEI_PTYPE_PIC_TIMING = 1,
+  SEI_PTYPE_USER_DATA_REGISTERED = 4,
+  SEI_PTYPE_USER_DATA_UNREGISTERED = 5,
+  SEI_PTYPE_RECOVERY_POINT = 6,
+  SEI_PTYPE_ACTIVE_PARAMETER_SETS = 129,
+  SEI_PTYPE_MASTERING_DISPLAY_COLOUR_VOLUME = 137,
+  SEI_PTYPE_CONTENT_LIGHT_LEVEL = 144,
+  SEI_PTYPE_ALTERNATIVE_TRANSFER_CHARACTERISTICS = 147
+}AL_ESeiPayloadType;
+
+/*****************************************************************************
+   \brief User Data Registered SEI types
+*****************************************************************************/
+typedef enum
+{
+  AL_UDR_SEI_UNKNOWN,
+  AL_UDR_SEI_ST2094_10,
+  AL_UDR_SEI_ST2094_40,
+}AL_EUserDataRegisterSEIType;
+
+/*****************************************************************************
+   \brief User Data Unregistered SEI types
+*****************************************************************************/
+typedef enum
+{
+  AL_UDU_SEI_UNKNOWN,
+  AL_UDU_SEI_ALLEGRO_NUM_SLICES,
+}AL_EUserDataUnregisterSEIType;
+
+/*************************************************************************/
+typedef struct AL_TRecoveryPoint
+{
+  int32_t recovery_cnt;
+  bool exact_match;
+  bool broken_link;
+}AL_TRecoveryPoint;
+
+/*****************************************************************************
    \brief Mimics structure for AVC SEI buffering period
 *****************************************************************************/
 typedef struct AL_TAvcBufPeriod
@@ -20,6 +63,52 @@ typedef struct AL_TAvcBufPeriod
   uint32_t initial_cpb_removal_delay[32]; // E.2.2 : cpb_cnt_minus1 shall be in the range of 0 to 31, inclusive
   uint32_t initial_cpb_removal_delay_offset[32];
 }AL_TAvcBufPeriod;
+
+/*****************************************************************************
+   \brief Mimics structure for AVC picture timing
+*****************************************************************************/
+typedef struct AL_TAvcSeiClockTS
+{
+  uint8_t clock_time_stamp_flag;
+  uint8_t ct_type;
+
+  uint8_t nuit_field_based_flag;
+  uint8_t counting_type;
+  uint8_t full_time_stamp_flag;
+  uint8_t discontinuity_flag;
+  uint8_t cnt_dropped_flag;
+  uint8_t n_frames;
+
+  uint8_t seconds_value;
+  uint8_t minutes_value;
+  uint8_t hours_value;
+
+  uint8_t seconds_flag;
+  uint8_t minutes_flag;
+  uint8_t hours_flag;
+
+  int32_t time_offset;
+}AL_TAvcSeiClockTS;
+
+/*************************************************************************/
+typedef struct AL_TAvcPicTiming
+{
+  uint32_t cpb_removal_delay;
+  uint32_t dpb_output_delay;
+  uint8_t pic_struct;
+  AL_TAvcSeiClockTS clock_ts[4];
+}AL_TAvcPicTiming;
+
+/*****************************************************************************
+   \brief AVC Supplemental enhancement information structure
+*****************************************************************************/
+typedef struct AL_TAvcSei
+{
+  AL_ESeiFlag present_flags;
+  AL_TAvcPicTiming picture_timing;
+  AL_TAvcBufPeriod buffering_period;
+  AL_TRecoveryPoint recovery_point;
+}AL_TAvcSei;
 
 /*****************************************************************************
    \brief Mimics structure for HEVC SEI buffering period
@@ -47,49 +136,6 @@ typedef struct AL_THevcBufPeriod
 }AL_THevcBufPeriod;
 
 /*****************************************************************************
-   \brief Mimics structure for AVC picture timing
-*****************************************************************************/
-typedef struct AL_TSeiClockTS
-{
-  uint8_t clock_time_stamp_flag;
-  uint8_t ct_type;
-
-  uint8_t nuit_field_based_flag;
-  uint8_t counting_type;
-  uint8_t full_time_stamp_flag;
-  uint8_t discontinuity_flag;
-  uint8_t cnt_dropped_flag;
-  uint8_t n_frames;
-
-  uint8_t seconds_value;
-  uint8_t minutes_value;
-  uint8_t hours_value;
-
-  uint8_t seconds_flag;
-  uint8_t minutes_flag;
-  uint8_t hours_flag;
-
-  int32_t time_offset;
-}AL_TSeiClockTS;
-
-/*************************************************************************/
-typedef struct AL_TAvcPicTiming
-{
-  uint32_t cpb_removal_delay;
-  uint32_t dpb_output_delay;
-  uint8_t pic_struct;
-  AL_TSeiClockTS clock_ts[4];
-}AL_TAvcPicTiming;
-
-/*************************************************************************/
-typedef struct AL_TRecoveryPoint
-{
-  int32_t recovery_cnt;
-  bool exact_match;
-  bool broken_link;
-}AL_TRecoveryPoint;
-
-/*****************************************************************************
    \brief Mimics structure for HEVC picture timing
 *****************************************************************************/
 typedef struct AL_THevcPicTiming
@@ -110,26 +156,6 @@ typedef struct AL_THevcPicTiming
 }AL_THevcPicTiming;
 
 /*****************************************************************************
-   \brief Mimics structure for VVC picture timing
-*****************************************************************************/
-typedef struct AL_TVvcPicTiming
-{
-  uint32_t pt_cpb_removal_delay_minus1[6]; //// 7.4.3.3 : vps_max_sublayers_minus1 shall be in the range of 0 to 6,
-  uint8_t pt_sublayer_delays_present_flag;
-}AL_TVvcPicTiming;
-
-/*****************************************************************************
-   \brief AVC Supplemental enhancement information structure
-*****************************************************************************/
-typedef struct AL_TAvcSei
-{
-  AL_ESeiFlag present_flags;
-  AL_TAvcPicTiming picture_timing;
-  AL_TAvcBufPeriod buffering_period;
-  AL_TRecoveryPoint recovery_point;
-}AL_TAvcSei;
-
-/*****************************************************************************
    \brief HEVC Supplemental enhancement information structure
 *****************************************************************************/
 typedef struct AL_THevcSei
@@ -141,5 +167,11 @@ typedef struct AL_THevcSei
 }AL_THevcSei;
 
 /****************************************************************************/
+#define UUID_SIZE 16
+static uint8_t const ALLEGRO_NUM_SLICES_SEI_UUID[UUID_SIZE] =
+{
+  0xb1, 0xe1, 0x67, 0xa4, 0xd9, 0xca, 0x11, 0xe7,
+  0xb1, 0x9b, 0x00, 0x50, 0xc2, 0x49, 0x00, 0x48
+};
 
 /*!@}*/

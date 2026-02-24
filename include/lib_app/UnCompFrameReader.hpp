@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,8 +12,8 @@ public:
   UnCompFrameReader(std::ifstream& File, AL_TYUVFileInfo& tFileInfo, bool bLoopFrames);
   virtual bool ReadFrame(AL_TBuffer* pFrameBuffer) override;
 
-  void SeekAbsolute(uint32_t uFrameIdx) override;
-  void SeekRelative(int32_t iFrameIdxDelta) override;
+  void SeekAbsolute(AL_64U uFrameIdx) override;
+  void SeekRelative(AL_64S iFrameIdxDelta) override;
 
   void SetRndDim(uint32_t uRndDim) { m_uRndDim = uRndDim; };
 

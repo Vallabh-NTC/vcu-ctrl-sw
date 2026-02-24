@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common_dec/HDRMeta.h"
 #include "lib_rtos/lib_rtos.h"
 
-static AL_TMetaData* clone(AL_TMetaData* pMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -14,7 +14,7 @@ static AL_TMetaData* clone(AL_TMetaData* pMeta)
   if(!pNewMeta)
     return NULL;
 
-  AL_HDRMetaData_Copy((AL_THDRMetaData*)pMeta, pNewMeta);
+  AL_HDRMetaData_Copy((AL_THDRMetaData const*)pMeta, pNewMeta);
 
   return (AL_TMetaData*)pNewMeta;
 }
@@ -50,7 +50,7 @@ void AL_HDRMetaData_Reset(AL_THDRMetaData* pMeta)
   AL_HDRSEIs_Reset(&pMeta->tHDRSEIs);
 }
 
-void AL_HDRMetaData_Copy(AL_THDRMetaData* pMetaSrc, AL_THDRMetaData* pMetaDst)
+void AL_HDRMetaData_Copy(AL_THDRMetaData const* pMetaSrc, AL_THDRMetaData* pMetaDst)
 {
   *pMetaDst = *pMetaSrc;
 }

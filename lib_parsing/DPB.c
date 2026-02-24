@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -8,8 +8,8 @@
  *****************************************************************************/
 
 #include "DPB.h"
-#include "lib_common/AvcUtils.h"
 #include "lib_common/Round.h"
+#include "lib_common/Index.h"
 
 static void DispFifo_Init(AL_TDispFifo* pFifo)
 {
@@ -52,7 +52,7 @@ static AL_TIndex DispFifo_Dequeue(AL_TDispFifo* fifo)
 {
   AL_TIndex tFrameID = fifo->pFrmIDs[fifo->tFirstFrmID];
 
-  if(tFrameID != AL_BAD_INDEX)
+  if(AL_IS_VALID_INDEX(tFrameID))
   {
     fifo->pFrmIDs[fifo->tFirstFrmID] = AL_BAD_INDEX;
     fifo->tFirstFrmID = (fifo->tFirstFrmID + 1) % AL_REFMNGR_MAX_POOL_SIZE;
@@ -104,19 +104,19 @@ static void AL_Dpb_sResetNodeInfo(AL_TDpb* pDpb, AL_TDpbNode* pNode)
   pNode->bIsDisplayed = false;
   pNode->uPicLatency = 0;
 
-  pNode->iPic_num = INT32_MAX;
-  pNode->iFrame_num_wrap = INT32_MAX;
-  pNode->iLong_term_pic_num = INT32_MAX;
-  pNode->iLong_term_frame_idx = INT32_MAX;
-  pNode->iSlice_frame_num = INT32_MAX;
-  pNode->bNonExisting = 0;
+  pNode->iPicNum = INT32_MAX;
+  pNode->iFrameNumberWrap = INT32_MAX;
+  pNode->iLongTermPicNum = INT32_MAX;
+  pNode->iLongTermFrameIdx = INT32_MAX;
+  pNode->iSliceFrameNumber = INT32_MAX;
+  pNode->bNonExisting = false;
   pNode->eNUT = AL_NUT_ERR;
 }
 
 /*****************************************************************************/
 static void AL_Dpb_sReleasePicID(AL_TDpb* pDpb, AL_TIndex tPicID)
 {
-  if(tPicID != AL_BAD_INDEX)
+  if(AL_IS_VALID_INDEX(tPicID))
   {
     pDpb->PicId2NodeId[tPicID] = AL_BAD_INDEX;
     pDpb->FreePicIDs[pDpb->FreePicIdCnt++] = tPicID;
@@ -140,6 +140,7 @@ static void AL_Dpb_sBeginNewSeq(AL_TDpb* pDpb)
   pDpb->iLastDisplayedPOC = 0x80000000;
 }
 
+#include "lib_common/AvcUtils.h"
 /*****************************************************************************/
 static void AL_Dpb_sSlidingWindowMarking(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice)
 {
@@ -157,9 +158,9 @@ static void AL_Dpb_sSlidingWindowMarking(AL_TDpb* pDpb, AL_TAvcSliceHdr const* p
     else if(pNodes[tPicID].eMarkingFlag == LONG_TERM_REF)
       ++uNumLongTerm;
 
-    if((pNodes[tPicID].iFrame_num_wrap < iMinFrameNumWrap) && (pNodes[tPicID].eMarkingFlag == SHORT_TERM_REF))
+    if((pNodes[tPicID].iFrameNumberWrap < iMinFrameNumWrap) && (pNodes[tPicID].eMarkingFlag == SHORT_TERM_REF))
     {
-      iMinFrameNumWrap = pNodes[tPicID].iFrame_num_wrap;
+      iMinFrameNumWrap = pNodes[tPicID].iFrameNumberWrap;
       tMinPicId = tPicID;
     }
     tPicID = pNodes[tPicID].tNextDecOrderNodeID;
@@ -196,12 +197,12 @@ static void AL_Dpb_sShortTermToUnused(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSli
 {
   AL_TDpbNode* pNodes = pDpb->Nodes;
   AL_TIndex tCurNodeID = pDpb->tCurRefNodeID;
-  int32_t iPicNumX = pNodes[tCurNodeID].iPic_num - (pSlice->difference_of_pic_nums_minus1[iIdx] + 1);
+  int32_t iPicNumX = pNodes[tCurNodeID].iPicNum - (pSlice->difference_of_pic_nums_minus1[iIdx] + 1);
   AL_TIndex tPicID = pDpb->tHeadDecOrderNodeID;
 
   while(IS_NODE_VALID(tPicID))
   {
-    if(pNodes[tPicID].iPic_num == iPicNumX)
+    if(pNodes[tPicID].iPicNum == iPicNumX)
     {
       if(pNodes[tPicID].eMarkingFlag == SHORT_TERM_REF)
       {
@@ -223,7 +224,7 @@ static void AL_Dpb_sLongTermToUnused(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlic
 
   while(IS_NODE_VALID(tPicID))
   {
-    if(pNodes[tPicID].iLong_term_pic_num == iLong_pic_num)
+    if(pNodes[tPicID].iLongTermPicNum == iLong_pic_num)
     {
       if(pNodes[tPicID].eMarkingFlag == LONG_TERM_REF)
         AL_Dpb_sSetPicToUnused(pDpb, tPicID);
@@ -244,7 +245,7 @@ static void AL_Dpb_sSwitchLongTermPlace(AL_TDpb* pDpb, AL_TIndex tRefID)
   {
     if((pNodes[tNodeID].eMarkingFlag == LONG_TERM_REF) && (tNodeID != tRefID))
     {
-      if(pNodes[tNodeID].iLong_term_pic_num > pNodes[tRefID].iLong_term_pic_num)
+      if(pNodes[tNodeID].iLongTermPicNum > pNodes[tRefID].iLongTermPicNum)
       {
         // remove node from the ordered decoding list
         if(IS_NODE_VALID(tPrevNodeID))
@@ -282,14 +283,14 @@ static void AL_Dpb_sLongTermFrameIdxToAShortTerm(AL_TDpb* pDpb, AL_TAvcSliceHdr 
   uint32_t iDiffPicNum = pSlice->difference_of_pic_nums_minus1[iIdx_diff_pic_num] + 1;
   int32_t iLongTermFrameIdx = pSlice->long_term_frame_idx[iIdx_long_term_frame];
   AL_TDpbNode* pNodes = pDpb->Nodes;
-  int32_t iPicNumX = pNodes[tCurRefNodeID].iPic_num - iDiffPicNum;
+  int32_t iPicNumX = pNodes[tCurRefNodeID].iPicNum - iDiffPicNum;
 
   while(IS_NODE_VALID(tPicID))
   {
-    if(pNodes[tPicID].iLong_term_frame_idx == iLongTermFrameIdx)
+    if(pNodes[tPicID].iLongTermFrameIdx == iLongTermFrameIdx)
       tFramePicID = tPicID;
 
-    if(pNodes[tPicID].iPic_num == iPicNumX)
+    if(pNodes[tPicID].iPicNum == iPicNumX)
       tNumPicID = tPicID;
     tPicID = pNodes[tPicID].tNextDecOrderNodeID;
   }
@@ -303,8 +304,8 @@ static void AL_Dpb_sLongTermFrameIdxToAShortTerm(AL_TDpb* pDpb, AL_TAvcSliceHdr 
   if(IS_NODE_VALID(tNumPicID))
   {
     pNodes[tNumPicID].eMarkingFlag = LONG_TERM_REF;
-    pNodes[tNumPicID].iLong_term_frame_idx = iLongTermFrameIdx;
-    pNodes[tNumPicID].iLong_term_pic_num = iLongTermFrameIdx;
+    pNodes[tNumPicID].iLongTermFrameIdx = iLongTermFrameIdx;
+    pNodes[tNumPicID].iLongTermPicNum = iLongTermFrameIdx;
     AL_Dpb_sSwitchLongTermPlace(pDpb, tNumPicID);
   }
 }
@@ -317,16 +318,16 @@ static void AL_Dpb_sDecodingMaxLongTermFrameIdx(AL_TDpb* pDpb, AL_TAvcSliceHdr c
 
   while(IS_NODE_VALID(tPicID))
   {
-    if((pNodes[tPicID].iLong_term_frame_idx < INT32_MAX)
-       && (pNodes[tPicID].iLong_term_frame_idx > (pSlice->max_long_term_frame_idx_plus1[iIdx] - 1))
+    if((pNodes[tPicID].iLongTermFrameIdx < INT32_MAX)
+       && (pNodes[tPicID].iLongTermFrameIdx > (pSlice->max_long_term_frame_idx_plus1[iIdx] - 1))
        && (pNodes[tPicID].eMarkingFlag == LONG_TERM_REF)
        )
       AL_Dpb_sSetPicToUnused(pDpb, tPicID);
     tPicID = pNodes[tPicID].tNextDecOrderNodeID;
   }
 
-  pDpb->MaxLongTermFrameIdx = pSlice->max_long_term_frame_idx_plus1[iIdx] ?
-                              (pSlice->max_long_term_frame_idx_plus1[iIdx] - 1) : INT32_MAX;
+  pDpb->iMaxLongTermFrameIdx = pSlice->max_long_term_frame_idx_plus1[iIdx] ?
+                               (pSlice->max_long_term_frame_idx_plus1[iIdx] - 1) : INT32_MAX;
 }
 
 /*****************************************************************************/
@@ -350,9 +351,9 @@ static void AL_Dpb_sSetAllPicAsUnused(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSli
   }
 
   pNodes[tCurRefNodeID].iFramePOC = 0;
-  pNodes[tCurRefNodeID].iSlice_frame_num = 0;
+  pNodes[tCurRefNodeID].iSliceFrameNumber = 0;
   pNodes[tCurRefNodeID].eNUT = AL_NUT_ERR;
-  pDpb->MaxLongTermFrameIdx = INT32_MAX;
+  pDpb->iMaxLongTermFrameIdx = INT32_MAX;
 
   if(pSlice->nal_ref_idc)
     pDpb->bLastHasMMCO5 = true;
@@ -371,7 +372,7 @@ static void AL_Dpb_sAssignLongTermFrameIdx(AL_TDpb* pDpb, AL_TAvcSliceHdr const*
 
   while(IS_NODE_VALID(tPicID))
   {
-    if(pNodes[tPicID].iLong_term_frame_idx == iLongTermFrameIdx)
+    if(pNodes[tPicID].iLongTermFrameIdx == iLongTermFrameIdx)
     {
       if(pNodes[tPicID].eMarkingFlag == LONG_TERM_REF)
       {
@@ -384,8 +385,8 @@ static void AL_Dpb_sAssignLongTermFrameIdx(AL_TDpb* pDpb, AL_TAvcSliceHdr const*
   }
 
   pNodes[tCurRefNodeID].eMarkingFlag = LONG_TERM_REF;
-  pNodes[tCurRefNodeID].iLong_term_frame_idx = iLongTermFrameIdx;
-  pNodes[tCurRefNodeID].iLong_term_pic_num = iLongTermFrameIdx;
+  pNodes[tCurRefNodeID].iLongTermFrameIdx = iLongTermFrameIdx;
+  pNodes[tCurRefNodeID].iLongTermPicNum = iLongTermFrameIdx;
   AL_Dpb_sSwitchLongTermPlace(pDpb, tCurRefNodeID);
 }
 
@@ -439,19 +440,19 @@ static int32_t AL_Dpb_sPicNumF(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlic
   if(!IS_NODE_VALID(tNodeID))
     return iMaxFrameNum;
 
-  return (pNodes[tNodeID].eMarkingFlag == SHORT_TERM_REF) ? pNodes[tNodeID].iPic_num : iMaxFrameNum;
+  return (pNodes[tNodeID].eMarkingFlag == SHORT_TERM_REF) ? pNodes[tNodeID].iPicNum : iMaxFrameNum;
 }
 
 /*****************************************************************************/
 static int32_t AL_Dpb_sLongTermPicNumF(AL_TDpb const* pDpb, AL_TIndex tNodeID)
 {
   AL_TDpbNode const* pNodes = pDpb->Nodes;
-  int32_t iMaxLongTermFrameIdx = pDpb->MaxLongTermFrameIdx;
+  int32_t iMaxLongTermFrameIdx = pDpb->iMaxLongTermFrameIdx;
 
   if(!IS_NODE_VALID(tNodeID)) // undefined reference
     return 2 * (iMaxLongTermFrameIdx + 1);
 
-  return (pNodes[tNodeID].eMarkingFlag == LONG_TERM_REF) ? pNodes[tNodeID].iLong_term_pic_num : 2 * (iMaxLongTermFrameIdx + 1);
+  return (pNodes[tNodeID].eMarkingFlag == LONG_TERM_REF) ? pNodes[tNodeID].iLongTermPicNum : 2 * (iMaxLongTermFrameIdx + 1);
 }
 
 /*****************************************************************************/
@@ -546,6 +547,7 @@ static bool sApiInit(AL_IReferenceManager* pICtx, AL_TPictMngrCallbacks* pCallba
   pDpb->iCurFramePOC = 0;
   pDpb->iPrevPocLSB = 0;
   pDpb->iPrevPocMSB = 0;
+  pDpb->iPrevPOC = 0;
   pDpb->iPrevFrameNum = -1;
 
   DispFifo_Init(&pDpb->DispFifo);
@@ -604,7 +606,7 @@ AL_TIndex AL_Dpb_GetNextPOC(AL_TDpb const* pDpb, AL_TIndex tNodeID)
 }
 
 /*****************************************************************************/
-uint8_t AL_Dpb_GetOutputFlag(AL_TDpb const* pDpb, AL_TIndex tNodeID)
+bool AL_Dpb_GetOutputFlag(AL_TDpb const* pDpb, AL_TIndex tNodeID)
 {
   Rtos_Assert(tNodeID < AL_REF_MNGR_MAX_BUF_SIZE);
   return pDpb->Nodes[tNodeID].bPicOutputFlag;
@@ -627,6 +629,7 @@ uint32_t sGetPicLatency_FromNode(AL_TDpb const* pDpb, AL_TIndex tNodeID)
 /*************************************************************************/
 AL_TIndex AL_Dpb_GetPicID_FromNode(AL_TDpb const* pDpb, AL_TIndex tNodeID)
 {
+
   if(!IS_NODE_VALID(tNodeID))
     return AL_BAD_INDEX;
 
@@ -915,7 +918,7 @@ static AL_TIndex sApiReleaseDisplayBuffer(AL_IReferenceManager* pICtx)
   AL_TIndex tFrameID = DispFifo_Dequeue(&pDpb->DispFifo);
   AL_TPictMngrCallbacks* cb = &pDpb->tCallbacks;
 
-  if(tFrameID != AL_BAD_INDEX)
+  if(AL_IS_VALID_INDEX(tFrameID))
     cb->pfnDecrementFrmBuf(cb->pUserParam, tFrameID);
   Rtos_ReleaseMutex(pDpb->Mutex);
   return tFrameID;
@@ -1017,7 +1020,7 @@ void AL_Dpb_AVC_Cleanup(AL_TDpb* pDpb)
   }
 
   // if waiting for pic ID picture
-  if(pDpb->bPicWaiting && pDpb->FreePicIdCnt)
+  if(pDpb->bPicWaiting && (pDpb->FreePicIdCnt > 0))
     AL_Dpb_sFillWaitingPicture(pDpb);
 
   Rtos_ReleaseMutex(pDpb->Mutex);
@@ -1093,7 +1096,7 @@ AL_TIndex AL_Dpb_Remove(AL_TDpb* pDpb, AL_TIndex tNodeID)
   AL_TDpbNode* pNode = &pDpb->Nodes[tNodeID];
 
   AL_TIndex tMvID = pNode->tMvID;
-  uint8_t bNonExisting = pNode->bNonExisting;
+  bool bNonExisting = pNode->bNonExisting;
   AL_TIndex tFrameID = pNode->tFrameID;
 
   RemoveFromPocList(pDpb, tNodeID);
@@ -1112,7 +1115,7 @@ AL_TIndex AL_Dpb_Remove(AL_TDpb* pDpb, AL_TIndex tNodeID)
   AL_Dpb_sResetNodeInfo(pDpb, pNode);
 
   // assigned pic id to the awaiting picture
-  if(pDpb->bPicWaiting && pDpb->FreePicIdCnt)
+  if(pDpb->bPicWaiting && (pDpb->FreePicIdCnt > 0))
     AL_Dpb_sFillWaitingPicture(pDpb);
 
   if(!bNonExisting)
@@ -1161,7 +1164,7 @@ static void sApiInsert(AL_IReferenceManager* pICtx, AL_TIndex tFrameID, AL_TInde
   // Assign PicID
   if(!pParam->bNonExisting)
   {
-    if(pDpb->FreePicIdCnt)
+    if(pDpb->FreePicIdCnt > 0)
     {
       tPicID = pDpb->FreePicIDs[--pDpb->FreePicIdCnt];
       pDpb->PicId2NodeId[tPicID] = tNodeID;
@@ -1380,18 +1383,18 @@ void AL_Dpb_PictNumberProcess(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice)
 
     if(pNodes[tPicID].eMarkingFlag == SHORT_TERM_REF)
     {
-      pNodes[tPicID].iFrame_num = pNodes[tPicID].iSlice_frame_num;
+      pNodes[tPicID].iFrameNumber = pNodes[tPicID].iSliceFrameNumber;
 
-      if(pNodes[tPicID].iFrame_num > pSlice->frame_num)
-        pNodes[tPicID].iFrame_num_wrap = pNodes[tPicID].iFrame_num - uMaxFrameNum;
+      if(pNodes[tPicID].iFrameNumber > pSlice->frame_num)
+        pNodes[tPicID].iFrameNumberWrap = pNodes[tPicID].iFrameNumber - uMaxFrameNum;
       else
-        pNodes[tPicID].iFrame_num_wrap = pNodes[tPicID].iFrame_num;
+        pNodes[tPicID].iFrameNumberWrap = pNodes[tPicID].iFrameNumber;
 
-      pNodes[tPicID].iPic_num = pNodes[tPicID].iFrame_num_wrap;
+      pNodes[tPicID].iPicNum = pNodes[tPicID].iFrameNumberWrap;
 
     }
     else if(pNodes[tPicID].eMarkingFlag == LONG_TERM_REF)
-      pNodes[tPicID].iLong_term_pic_num = pNodes[tPicID].iLong_term_frame_idx;
+      pNodes[tPicID].iLongTermPicNum = pNodes[tPicID].iLongTermFrameIdx;
 
     tPicID = pNodes[tPicID].tNextDecOrderNodeID;
   }
@@ -1404,18 +1407,18 @@ void AL_Dpb_MarkingProcess(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, int32_t
   AL_TIndex tCurRefNodeID = pDpb->tCurRefNodeID;
 
   // fill node's parameters
-  pNodes[tCurRefNodeID].iSlice_frame_num = pSlice->frame_num;
+  pNodes[tCurRefNodeID].iSliceFrameNumber = pSlice->frame_num;
   pNodes[tCurRefNodeID].tNodeID = tCurRefNodeID;
 
   if(AL_AVC_IsIDR(pSlice->nal_unit_type))
   {
     if(!pSlice->long_term_reference_flag)
     {
-      pDpb->MaxLongTermFrameIdx = INT32_MAX;
+      pDpb->iMaxLongTermFrameIdx = INT32_MAX;
       return;
     }
-    pNodes[tCurRefNodeID].iLong_term_frame_idx = 0;
-    pDpb->MaxLongTermFrameIdx = 0;
+    pNodes[tCurRefNodeID].iLongTermFrameIdx = 0;
+    pDpb->iMaxLongTermFrameIdx = 0;
     return;
   }
 
@@ -1431,7 +1434,7 @@ void AL_Dpb_MarkingProcess(AL_TDpb* pDpb, AL_TAvcSliceHdr const* pSlice, int32_t
     if((pSlice->memory_management_control_operation[op_idc] == 6) && (pNodes[tCurRefNodeID].eMarkingFlag != LONG_TERM_REF))
     {
       pNodes[tCurRefNodeID].eMarkingFlag = SHORT_TERM_REF;
-      pNodes[tCurRefNodeID].iLong_term_frame_idx = INT32_MAX;
+      pNodes[tCurRefNodeID].iLongTermFrameIdx = INT32_MAX;
       break;
     }
   }
@@ -1607,7 +1610,7 @@ void AL_Dpb_InitBSlice_RefList(AL_TDpb const* pDpb, int32_t iCurFramePOC, AL_EPi
 }
 
 /*****************************************************************************/
-void AL_Dpb_ModifShortTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, int32_t iPicNumIdc, uint8_t uOffset, int32_t iL0L1, uint8_t* pRefIdx, int32_t* pPicNumPred, TBufferListRef* pListRef)
+void AL_Dpb_ModifShortTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, int32_t iPicNumIdc, uint8_t uOffset, int32_t iL0L1, AL_TIndex* pRefIdx, int32_t* pPicNumPred, TBufferListRef* pListRef)
 {
   int32_t iMaxFrameNum = (1 << (pSlice->pSPS->log2_max_frame_num_minus4 + 4)) * (1 + pSlice->field_pic_flag);
   int32_t iDiffPicNum = iL0L1 ? pSlice->abs_diff_pic_num_minus1_l1[uOffset] + 1 :
@@ -1640,7 +1643,7 @@ void AL_Dpb_ModifShortTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, i
 
   while(IS_NODE_VALID(tCptNodeID))
   {
-    if((pNodes[tCptNodeID].iPic_num == iPicNum) && (pNodes[tCptNodeID].eMarkingFlag == SHORT_TERM_REF))
+    if((pNodes[tCptNodeID].iPicNum == iPicNum) && (pNodes[tCptNodeID].eMarkingFlag == SHORT_TERM_REF))
     {
       (*pListRef)[iL0L1][(*pRefIdx)].tNodeID = pNodes[tCptNodeID].tNodeID;
       (*pRefIdx)++;
@@ -1665,7 +1668,7 @@ void AL_Dpb_ModifShortTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, i
 }
 
 /*****************************************************************************/
-void AL_Dpb_ModifLongTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, uint8_t uOffset, int32_t iL0L1, uint8_t* pRefIdx, TBufferListRef* pListRef)
+void AL_Dpb_ModifLongTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, uint8_t uOffset, int32_t iL0L1, AL_TIndex* pRefIdx, TBufferListRef* pListRef)
 {
   uint8_t uNumRef = iL0L1 ? pSlice->num_ref_idx_l1_active_minus1 + 1 : pSlice->num_ref_idx_l0_active_minus1 + 1;
 
@@ -1680,7 +1683,7 @@ void AL_Dpb_ModifLongTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, ui
 
   while(IS_NODE_VALID(tCptNodeID))
   {
-    int64_t iRefLongTermPicNum = pNodes[tCptNodeID].iLong_term_frame_idx;
+    AL_64S iRefLongTermPicNum = pNodes[tCptNodeID].iLongTermFrameIdx;
 
     if(ePicStruct != AL_PS_FRM)
       iRefLongTermPicNum = (pNodes[tCptNodeID].ePicStruct == ePicStruct) ? (2 * iRefLongTermPicNum + 1) : (2 * iRefLongTermPicNum);
@@ -1733,6 +1736,7 @@ static uint8_t sApiGetReflistIds(AL_IReferenceManager* pICtx, AL_TIndex* pFrameI
 
     if(!IS_NODE_VALID(tNodeID))
     {
+
       if(bConceal && !sIsEmpty(pDpb))
       {
         tNodeID = AL_Dpb_ConvertPicIDToNodeID(pDpb, tConcealPicID);
@@ -1758,11 +1762,14 @@ static uint8_t sApiGetReflistIds(AL_IReferenceManager* pICtx, AL_TIndex* pFrameI
 }
 
 /*************************************************************************/
-AL_TIndex sApiGetAnnexIdFromReferenceId(AL_IReferenceManager const* pCtx, uint8_t uRefId)
+AL_TIndex sApiGetAnnexIdFromReferenceId(AL_IReferenceManager const* pCtx, AL_TIndex tRefId)
 {
-  (void)pCtx;
-  (void)uRefId;
-  return AL_BAD_INDEX;
+  AL_TDpb* pDpb = (AL_TDpb*)pCtx;
+
+  AL_TIndex tNodeID = AL_Dpb_ConvertPicIDToNodeID(pDpb, tRefId);
+  AL_TIndex tMvID = AL_Dpb_GetMvID_FromNode(pDpb, tNodeID);
+
+  return tMvID;
 }
 
 /*************************************************************************/

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -33,5 +33,5 @@ typedef struct IRbspWriter
   void (* WriteSEI_AlternativeTransferCharacteristics)(AL_TBitStreamLite* writer, AL_TAlternativeTransferCharacteristics* pATC);
   void (* WriteSEI_ST2094_10)(AL_TBitStreamLite* writer, AL_TDynamicMeta_ST2094_10* pST2094_10);
   void (* WriteSEI_ST2094_40)(AL_TBitStreamLite* writer, AL_TDynamicMeta_ST2094_40* pST2094_40);
-  void (* WriteSEI_UserDataUnregistered)(AL_TBitStreamLite* writer, uint8_t uuid[16], int8_t numSlices);
+  void (* WriteSEI_AllegroNumSlices)(AL_TBitStreamLite* writer, int8_t numSlices);
 }IRbspWriter;

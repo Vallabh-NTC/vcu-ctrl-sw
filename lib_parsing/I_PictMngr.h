@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -18,8 +18,8 @@
 #include "lib_common_dec/DecDpbMode.h"
 
 #include "lib_rtos/types.h"
-#include "include/lib_common_dec/DecOutputSettings.h"
-#include "BufPool.h"
+#include "lib_common_dec/DecOutputSettings.h"
+#include "lib_common_dec/BufPool.h"
 
 #include "I_ReferenceManager.h"
 
@@ -85,7 +85,7 @@ typedef struct
   AL_TDecOutputSettings tDecOutputSettings;
 
   AL_TFrmBufPool FrmBufPool;
-  AL_PictMngr_BufPool AnnexBufPool;
+  AL_TBufPool AnnexBufPool;
   bool bIsAnnexPoolSet;
   size_t vAnnexSubBufOffsets[AL_MAX_ANNEX_BUF];
   size_t vAnnexSubBufSizes[AL_MAX_ANNEX_BUF];
@@ -100,7 +100,6 @@ typedef struct
   bool bCompleteInit;
 
   AL_TPosition tOutputPosition;
-
 }AL_TPictMngrCtx;
 
 typedef struct
@@ -306,7 +305,7 @@ void AL_PictMngr_UnlockID(AL_TPictMngrCtx* pCtx, AL_TIndex tFrameID, AL_TIndex t
 
 /*****************************************************************************/
 bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSliceParam, AL_TRecBuffers* pRecs, TBuffer* pAnnex, AL_TPictMngrRefBuffers* pRefBuffers);
-void AL_PictMngr_GetAnnexBuffersFromReferenceID(AL_TPictMngrCtx* pCtx, uint8_t uRefId, TBuffer* pAnnexBuffers);
+void AL_PictMngr_GetAnnexBuffersFromReferenceID(AL_TPictMngrCtx* pCtx, AL_TIndex tRefId, TBuffer* pAnnexBuffers);
 
 void AL_PictMngr_UpdateReferenceManager(AL_TPictMngrCtx* pCtx);
 void AL_PictMngr_GetAnnexBuffers(AL_TPictMngrCtx* pCtx, AL_TIndex tAnnexID, TBuffer* pAnnex);

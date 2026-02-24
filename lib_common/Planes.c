@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/Planes.h"
@@ -108,4 +108,21 @@ bool AL_Plane_Exists(AL_EPlaneMode ePlaneMode, bool bIsCompressed, AL_EPlaneId e
   }
 
   return false;
+}
+
+AL_EPlaneId AL_Plane_GetMapPlane(AL_EPlaneId ePlaneId)
+{
+  switch(ePlaneId)
+  {
+  case AL_PLANE_Y:
+    return AL_PLANE_MAP_Y;
+  case AL_PLANE_UV:
+    return AL_PLANE_MAP_UV;
+  case AL_PLANE_U:
+    return AL_PLANE_MAP_U;
+  case AL_PLANE_V:
+    return AL_PLANE_MAP_V;
+  default:
+    return AL_PLANE_MAX_ENUM;
+  }
 }

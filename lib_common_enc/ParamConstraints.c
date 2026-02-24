@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/Utils.h"
 #include "lib_common/ChannelResources.h"
-#include "lib_common_enc/ParamConstraints.h"
+#include "lib_common_enc/ParamConstraintsInternal.h"
 
 #define MIN_QP_CHROMA_OFFSET -12
 #define MAX_QP_CHROMA_OFFSET 12
@@ -15,6 +15,8 @@ static bool AL_CheckChromaOffsetsInRange(int8_t iQpOffset)
 
 ECheckResolutionError AL_ParamConstraints_CheckResolution(AL_EProfile eProfile, AL_EChromaMode eChromaMode, uint8_t uLCUSize, uint16_t uWidth, uint16_t uHeight)
 {
+  (void)eProfile;
+
   if((uWidth % 2 != 0) && ((eChromaMode == AL_CHROMA_4_2_0) || (eChromaMode == AL_CHROMA_4_2_2)))
     return CRERROR_WIDTHCHROMA;
 
@@ -23,9 +25,6 @@ ECheckResolutionError AL_ParamConstraints_CheckResolution(AL_EProfile eProfile, 
 
   if(uLCUSize == 64 && (uHeight < 72 || uWidth < 72))
     return CRERROR_64x64_MIN_RES;
-
-  if(AL_IS_AOM(eProfile) && ((uWidth % 8) != 0 || (uHeight % 8) != 0))
-    return CERROR_RES_ALIGNMENT;
 
   return CRERROR_OK;
 }

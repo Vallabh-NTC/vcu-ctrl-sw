@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -16,13 +16,17 @@
 #include "lib_common/StreamBufferPrivate.h"
 #include "lib_common_enc/EncBuffers.h"
 #include "lib_common_enc/EncSize.h"
-#include "lib_common_enc/ParamConstraints.h"
+#include "lib_common_enc/ParamConstraintsInternal.h"
 #include "lib_common_enc/DPBConstraints.h"
 #include "lib_common_enc/EncChanParamInternal.h"
 #include "lib_common/ScalingList.h"
 #include "lib_common_enc/EncHardwareConfig.h"
+#include "lib_common/AvcLevels.h"
 #include "lib_common/AvcLevelsLimit.h"
+#include "lib_common/AvcUtils.h"
+#include "lib_common/HevcLevels.h"
 #include "lib_common/HevcLevelsLimit.h"
+#include "lib_common/HevcUtils.h"
 
 static int32_t const HEVC_MAX_CTB_SIZE = 5; // 32x32
 static int32_t const HEVC_MIN_CTB_SIZE = 5; // 32x32
@@ -32,6 +36,7 @@ static int32_t const MIN_CU_SIZE = AL_MIN_SUPPORTED_LCU_SIZE; // 8x8
 static int32_t const LOG2_MIN_QP_TABLE_SIZE = 4; // 16x16
 
 static int32_t LAMBDA_FACTORS[] = { 51, 90, 151, 151, 151, 151 }; // I, P, B(temporal id low to high)
+
 /***************************************************************************/
 static bool AL_sSettings_CheckProfile(AL_EProfile eProfile)
 {
@@ -86,13 +91,13 @@ static bool AL_sSettings_CheckProfile(AL_EProfile eProfile)
 }
 
 /***************************************************************************/
-static bool AL_sSettings_CheckLevel(AL_EProfile eProfile, uint8_t uLevel)
+static bool AL_sSettings_CheckLevel(AL_EProfile eProfile, int32_t iLevel)
 {
-  (void)uLevel;
+  (void)iLevel;
   switch(AL_GET_CODEC(eProfile))
   {
-  case AL_CODEC_AVC: return AL_AVC_CheckLevel(uLevel);
-  case AL_CODEC_HEVC: return AL_HEVC_CheckLevel(uLevel);
+  case AL_CODEC_AVC: return AL_AVC_IsLevel(iLevel);
+  case AL_CODEC_HEVC: return AL_HEVC_IsLevel(iLevel);
   default: return false;
   }
 }
@@ -506,9 +511,6 @@ void AL_Settings_SetDefaultRCParam(AL_TRCParam* pRCParam)
   pRCParam->uMaxConsecSkip = UINT32_MAX;
 }
 
-/***************************************************************************/
-#define AL_DEFAULT_PROFILE AL_PROFILE_HEVC_MAIN
-
 static int32_t const iBetaOffsetAuto = -1;
 
 /***************************************************************************/
@@ -544,7 +546,7 @@ void AL_Settings_SetDefaultChannelParam(AL_TEncChanParam* pChan)
   pChan->Direct8x8Infer = true;
   pChan->StrongIntraSmooth = true;
 
-  pChan->eProfile = AL_DEFAULT_PROFILE;
+  pChan->eProfile = AL_ENC_DEFAULT_PROFILE;
   pChan->uLevel = 51;
   pChan->eEncTools = AL_OPT_LF | AL_OPT_LF_X_SLICE | AL_OPT_LF_X_TILE;
   pChan->eEncOptions |= AL_OPT_RDO_COST_MODE;
@@ -716,10 +718,13 @@ int32_t AL_Settings_CheckValidity(AL_TEncSettings* pSettings, AL_TEncChanParam* 
     }
   }
 
-  if(!AL_sSettings_CheckLevel(pChParam->eProfile, pChParam->uLevel))
+  if(AL_HAS_LEVEL(pChParam->eProfile))
   {
-    ++err;
-    MSG_ERROR("Invalid parameter: Level");
+    if(!AL_sSettings_CheckLevel(pChParam->eProfile, pChParam->uLevel))
+    {
+      ++err;
+      MSG_ERROR("Invalid parameter: Level");
+    }
   }
 
   if(AL_IS_INTRA_PROFILE(pChParam->eProfile) && (pChParam->tGopParam.eMode & AL_GOP_FLAG_PYRAMIDAL))
@@ -882,11 +887,6 @@ int32_t AL_Settings_CheckValidity(AL_TEncSettings* pSettings, AL_TEncChanParam* 
   {
     ++err;
     MSG_ERROR("LCU64x64 encoding is currently limited to resolution higher or equal to 72x72!");
-  }
-  else if(eResError == CERROR_RES_ALIGNMENT)
-  {
-    ++err;
-    MSG_ERROR("In AV1 or VP9 Profile, resolution must be multiple of 8!");
   }
 
   int32_t iNumB = pChParam->tGopParam.uNumB;

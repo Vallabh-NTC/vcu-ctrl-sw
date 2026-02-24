@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -4273,6 +4273,31 @@ void AVUY_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
   }
 }
 
+void VUYA_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
+{
+  // The AYUV format defined by microsoft is actually VUYA
+  AL_TDimension dim = AL_PixMapBuffer_GetDimension(pSrc);
+  uint32_t* pSrcWord = (uint32_t*)AL_PixMapBuffer_GetPlaneAddress(pSrc, AL_PLANE_YUV);
+  int32_t iSrcPitch = AL_PixMapBuffer_GetPlanePitch(pSrc, AL_PLANE_YUV) / sizeof(uint32_t);
+  uint8_t* pDstY = AL_PixMapBuffer_GetPlaneAddress(pDst, AL_PLANE_Y);
+  int32_t iDstYPitch = AL_PixMapBuffer_GetPlanePitch(pDst, AL_PLANE_Y);
+  uint8_t* pDstU = AL_PixMapBuffer_GetPlaneAddress(pDst, AL_PLANE_U);
+  int32_t iDstUPitch = AL_PixMapBuffer_GetPlanePitch(pDst, AL_PLANE_U);
+  uint8_t* pDstV = AL_PixMapBuffer_GetPlaneAddress(pDst, AL_PLANE_V);
+  int32_t iDstVPitch = AL_PixMapBuffer_GetPlanePitch(pDst, AL_PLANE_V);
+
+  for(int32_t H = 0; H < dim.iHeight; H++)
+  {
+    for(int32_t W = 0; W < dim.iWidth; W++)
+    {
+      uint32_t currentWord = pSrcWord[H * iSrcPitch + W];
+      pDstV[H * iDstYPitch + W] = (currentWord >> 24) & 0xFF;
+      pDstU[H * iDstUPitch + W] = (currentWord >> 16) & 0xFF;
+      pDstY[H * iDstVPitch + W] = (currentWord >> 8) & 0xFF;
+    }
+  }
+}
+
 void AYUV_To_NV24(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
 {
   // The AYUV format defined by microsoft is actually VUYA
@@ -4381,6 +4406,11 @@ void ARGB_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
 void ABGR_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
 {
   AVUY_To_I444(pSrc, pDst);
+}
+
+void BGRA_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
+{
+  VUYA_To_I444(pSrc, pDst);
 }
 
 void AB30_To_I4AL(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
@@ -5338,6 +5368,13 @@ static const sFourCCToConvFunc ConversionABGRFuncArray[] =
   },
 };
 
+static const sFourCCToConvFunc ConversionBGRAFuncArray[] =
+{
+  {
+    FOURCC(I444), BGRA_To_I444
+  },
+};
+
 static const sFourCCToConvFunc ConversionAB30FuncArray[] =
 {
   {
@@ -5358,7 +5395,7 @@ struct sConvFourCCArray
 {
   TFourCC tInFourCC;
   const sFourCCToConvFunc* array;
-  uint32_t array_size;
+  int32_t array_size;
 };
 
 static const sConvFourCCArray ConvMatchArray[] =
@@ -5424,7 +5461,7 @@ static tConvFourCCFunc GetConversionOutFunction(sConvFourCCArray const* pMatchAr
 {
   sFourCCToConvFunc const* pFourCCConv;
 
-  for(uint32_t i = 0; i < pMatchArray->array_size; i++)
+  for(int32_t i = 0; i < pMatchArray->array_size; i++)
   {
     pFourCCConv = &pMatchArray->array[i];
 
@@ -5469,7 +5506,7 @@ tConvFourCCFunc GetConvFourCCFunc(TFourCC tInFourCC, TFourCC tOutFourCC)
   AdjustTileFourCC(tInFourCC);
   AdjustTileFourCC(tOutFourCC);
 
-  for(uint32_t i = 0; i < ARRAY_SIZE(ConvMatchArray); i++)
+  for(int32_t i = 0; i < ARRAY_SIZE(ConvMatchArray); i++)
   {
     pMatchArray = &ConvMatchArray[i];
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,68 +12,38 @@ static const int32_t MAX_BIT_DEPTH_MINUS_8 = 4;
 static const int32_t MAX_POC_LSB_MINUS_4 = 12;
 
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (int)(sizeof(x) / sizeof((x)[0]))
+#define ARRAY_SIZE(x) (int32_t)(sizeof(x) / sizeof((x)[0]))
 #endif
 
 /***************************************************************************/
-static inline AL_64U BitsToBytes(AL_64U zBits)
-{
-  return (zBits + 7) / 8;
-}
+AL_64U BitsToBytes(AL_64U zBits);
 
 /***************************************************************************/
-static inline AL_64U BytesToBits(AL_64U zBytes)
-{
-  return zBytes * 8;
-}
+AL_64U BytesToBits(AL_64U zBytes);
 
 /***************************************************************************/
-static inline int32_t Clip3(int32_t iVal, int32_t iMin, int32_t iMax)
-{
-  return (iVal < iMin) ? iMin : ((iVal > iMax) ? iMax : iVal);
-}
+AL_64U UnsignedClip3(AL_64U uVal, AL_64U uMin, AL_64U uMax);
 
 /***************************************************************************/
-static inline AL_64S Clip3ll(AL_64S iVal, AL_64S iMin, AL_64S iMax)
-{
-  return ((iVal) < (iMin)) ? (iMin) : ((iVal) > (iMax)) ? (iMax) : (iVal);
-}
+AL_64U UnsignedMax(AL_64U uVal1, AL_64U uVal2);
 
 /***************************************************************************/
-static inline int32_t Max(int32_t iVal1, int32_t iVal2)
-{
-  return (iVal1 < iVal2) ? iVal2 : iVal1;
-}
+AL_64U UnsignedMin(AL_64U uVal1, AL_64U uVal2);
 
 /***************************************************************************/
-static inline AL_64U UnsignedMax(AL_64U zVal1, AL_64U zVal2)
-{
-  return (zVal1 < zVal2) ? zVal2 : zVal1;
-}
+AL_64S Clip3(AL_64S iVal, AL_64S iMin, AL_64S iMax);
 
 /***************************************************************************/
-static inline AL_64U UnsignedMin(AL_64U iVal1, AL_64U iVal2)
-{
-  return (iVal1 > iVal2) ? iVal2 : iVal1;
-}
+AL_64S Max(AL_64S iVal1, AL_64S iVal2);
 
 /***************************************************************************/
-static inline int32_t Min(int32_t iVal1, int32_t iVal2)
-{
-  return (iVal1 > iVal2) ? iVal2 : iVal1;
-}
+AL_64S Min(AL_64S iVal1, AL_64S iVal2);
 
 /***************************************************************************/
-static inline int32_t Abs(int32_t iVal)
-{
-  return (iVal > 0) ? iVal : -iVal;
-}
+AL_64S Abs(AL_64S iVal);
 
 /***************************************************************************/
-static inline int32_t Sign(int32_t iVal)
-{
-  return (iVal > 0) ? 1 : ((iVal < 0) ? -1 : 0);
-}
+AL_64S Sign(AL_64S iVal);
 
 /***************************************************************************/
 int32_t ceil_log2(int32_t n);
@@ -85,7 +55,7 @@ int32_t floor_log2(int32_t n);
 int32_t GetBlkNumber(AL_TDimension tDim, uint32_t uBlkWidth, uint32_t uBlkHeight);
 
 /****************************************************************************/
-static inline int32_t GetSquareBlkNumber(AL_TDimension tDim, uint32_t uBlkSize) { return GetBlkNumber(tDim, uBlkSize, uBlkSize); }
+int32_t GetSquareBlkNumber(AL_TDimension tDim, uint32_t uBlkSize);
 
 /****************************************************************************/
 int16_t MaxInArray(const int16_t tab[], int32_t arraySize);

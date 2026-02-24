@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -69,7 +69,7 @@ static bool GetTag(ifstream& qpFile, AL_ESliceType& eType)
 /****************************************************************************/
 static AL_TQpTableMetaData* GetQpTableMetaData(AL_TBuffer* pQpBuf)
 {
-  AL_TQpTableMetaData* pMeta = (AL_TQpTableMetaData*)AL_Buffer_GetMetaData(pQpBuf, AL_META_QP_TABLE);
+  AL_TQpTableMetaData* pMeta = (AL_TQpTableMetaData*)AL_Buffer_GetMetaData(pQpBuf, AL_META_TYPE_QP_TABLE);
 
   if(pMeta)
     return pMeta;
@@ -177,7 +177,7 @@ string createQPFileName(const string& folder, const string& motif)
 }
 
 /****************************************************************************/
-static bool OpenFile(const string& sQPTablesFolder, int32_t iFrameID, string motif, ifstream& File)
+static bool OpenFile(const string& sQPTablesFolder, AL_64S iFrameID, string motif, ifstream& File)
 {
   string sFileFolder = sQPTablesFolder.empty() ? DefaultQPTablesFolder : sQPTablesFolder;
 
@@ -486,7 +486,7 @@ static void GetQPBufferParameters(int16_t iLCUPicWidth, int16_t iLCUPicHeight, A
 }
 
 /****************************************************************************/
-AL_ERR GenerateROIBuffer(AL_TRoiMngrCtx* pRoiCtx, string const& sRoiFileName, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, int32_t iFrameID, uint8_t* pQPs)
+AL_ERR GenerateROIBuffer(AL_TRoiMngrCtx* pRoiCtx, string const& sRoiFileName, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, AL_64S iFrameID, uint8_t* pQPs)
 {
   int32_t iNumQPPerLCU, iNumBytesPerLCU, iNumLCUs;
   GetQPBufferParameters(iLCUPicWidth, iLCUPicHeight, eProf, uLog2MaxCuSize, iQPTableDepth, iNumQPPerLCU, iNumBytesPerLCU, iNumLCUs, pQPs);
@@ -494,7 +494,7 @@ AL_ERR GenerateROIBuffer(AL_TRoiMngrCtx* pRoiCtx, string const& sRoiFileName, in
 }
 
 /****************************************************************************/
-AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, AL_TBuffer* pQpBuf)
+AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, const string& sQPTablesFolder, AL_64S iFrameID, AL_TBuffer* pQpBuf)
 {
   (void)iSliceQP;
   (void)iMinQP;

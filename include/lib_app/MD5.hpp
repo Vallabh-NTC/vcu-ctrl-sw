@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -40,11 +40,14 @@ struct Md5Calculator
   {
     if(!path.empty())
     {
+      OpenOutput(m_Md5File, path);
+
       if(path == "stdout")
+      {
         m_pMd5Out = &std::cout;
+      }
       else
       {
-        OpenOutput(m_Md5File, path);
         m_pMd5Out = &m_Md5File;
       }
     }

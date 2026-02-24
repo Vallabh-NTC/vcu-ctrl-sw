@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -283,7 +283,6 @@ typedef enum AL_ERateCtrlMode
   AL_RC_VBR = 0x02,
   AL_RC_LOW_LATENCY = 0x03,
   AL_RC_CAPPED_VBR = 0x04,
-  AL_RC_BYPASS = 0x3F,
   AL_RC_PLUGIN = 0x40,
   AL_RC_MAX_ENUM,
 }AL_ERateCtrlMode;
@@ -307,7 +306,7 @@ typedef enum AL_ERateCtrlOption
     Contains the user defined constraints on the stream in term of quality and bandwidth.
     Also contains the hardware constraints that will affect the rate control (See AL_RC_OPT_DELAYED)
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TRCParam
+typedef struct __AL_ALIGNED__ (4) AL_TRCParam
 {
   AL_ERateCtrlMode eRCMode;
   uint32_t uInitialRemDelay; /*!< Initial removal delay */
@@ -363,7 +362,7 @@ typedef enum AL_EGopCtrlMode
 /*****************************************************************************
    \brief Group of Picture parameters.
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TGopParam
+typedef struct __AL_ALIGNED__ (4) AL_TGopParam
 {
   AL_EGopCtrlMode eMode;
   uint16_t uGopLength; /*!< Length of the Group Of Picture in the encoded stream */
@@ -415,15 +414,9 @@ typedef enum AL_ESrcMode
   AL_SRC_MAX_ENUM,
 }AL_ESrcMode;
 
-AL_DEPRECATED_ENUM_VALUE(AL_ESrcMode, AL_SRC_NVX, AL_SRC_RASTER, "Renamed. Use AL_SRC_RASTER.");
-
 #define MASK_SRC_COMP 0x01
 #define AL_GET_COMP_MODE(SrcConvFmt) ((SrcConvFmt) & MASK_SRC_COMP)
 #define AL_SET_COMP_MODE(SrcConvFmt, CompMode) (SrcConvFmt) = ((SrcConvFmt) & ~MASK_SRC_COMP) | ((CompMode) & MASK_SRC_COMP)
-
-/*****************************************************************************
-   \brief Extended merge candidates for VVC
-*****************************************************************************/
 
 /***************************************************************************/
 
@@ -440,7 +433,7 @@ typedef enum AL_EMotionVectorDirection
 /*****************************************************************************
    \brief Channel parameters structure
 *****************************************************************************/
-typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TEncChanParam
+typedef struct __AL_ALIGNED__ (4) AL_TEncChanParam
 {
   int32_t iLayerID;
 

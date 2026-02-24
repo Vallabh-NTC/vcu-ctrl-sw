@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "HEVC_RbspEncod.h"
 #include "RbspEncod.h"
 #include "include/lib_rtos/lib_rtos.h"
 #include "lib_common/SliceConsts.h"
-#include "lib_common/Utils.h"
 #include "lib_common/Nuts.h"
+#include "lib_common/SeiInternal.h"
 #include "lib_common/ScalingList.h"
 #include "lib_common_enc/PictureInfo.h"
 
@@ -659,7 +659,7 @@ static void writeSeiActiveParameterSets(AL_TBitStreamLite* pBS, AL_THevcVps cons
   AL_THevcSps* pSps = (AL_THevcSps*)pISps;
 
   // Active Parameter Sets
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 129);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_ACTIVE_PARAMETER_SETS);
 
   AL_BitStreamLite_PutU(pBS, 4, pSps->sps_video_parameter_set_id);
   AL_BitStreamLite_PutBit(pBS, 0); // self_contained_cvs_flag
@@ -684,7 +684,7 @@ static void writeSeiBufferingPeriod(AL_TBitStreamLite* pBS, AL_TSps const* pISps
   AL_THevcSps* pSps = (AL_THevcSps*)pISps;
 
   // buffering_period
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 0);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_BUFFERING_PERIOD);
 
   AL_BitStreamLite_PutUE(pBS, pSps->sps_seq_parameter_set_id);
 
@@ -752,7 +752,7 @@ static void writeSeiBufferingPeriod(AL_TBitStreamLite* pBS, AL_TSps const* pISps
 /******************************************************************************/
 static void writeSeiRecoveryPoint(AL_TBitStreamLite* pBS, int32_t iRecoveryFrameCnt)
 {
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 6);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_RECOVERY_POINT);
 
   AL_BitStreamLite_PutSE(pBS, iRecoveryFrameCnt);
   AL_BitStreamLite_PutBit(pBS, 1); // exact_match_flag
@@ -767,7 +767,7 @@ static void writeSeiRecoveryPoint(AL_TBitStreamLite* pBS, int32_t iRecoveryFrame
 static void writeSeiPictureTiming(AL_TBitStreamLite* pBS, AL_TSps const* pISps, int32_t iAuCpbRemovalDelay, int32_t iPicDpbOutputDelay, int32_t iPicStruct)
 {
   AL_THevcSps* pSps = (AL_THevcSps*)pISps;
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 1);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_PIC_TIMING);
 
   if(pSps->vui_param.frame_field_info_present_flag)
   {
@@ -873,7 +873,7 @@ static IRbspWriter writer =
   AL_RbspEncoding_WriteAlternativeTransferCharacteristics,
   AL_RbspEncoding_WriteST2094_10,
   AL_RbspEncoding_WriteST2094_40,
-  AL_RbspEncoding_WriteUserDataUnregistered,
+  AL_RbspEncoding_WriteAllegroNumSlicesSEI,
 };
 
 IRbspWriter* AL_GetHevcRbspWriter(void)

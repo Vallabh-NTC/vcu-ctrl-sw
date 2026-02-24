@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -25,6 +25,6 @@ typedef struct AL_TPictureDecMetaData
    The last frame defaults to true
 *****************************************************************************/
 AL_TPictureDecMetaData* AL_PictureDecMetaData_Create(void);
-AL_TPictureDecMetaData* AL_PictureDecMetaData_Clone(AL_TPictureDecMetaData* pMeta);
+AL_TPictureDecMetaData* AL_PictureDecMetaData_Clone(AL_TPictureDecMetaData const* pMeta);
 
 /*!@}*/

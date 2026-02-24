@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -27,6 +27,6 @@ typedef struct AL_TPictureMetaData
    The slice type is initialized to an invalid value (SLICE_MAX_ENUM) by default.
 *****************************************************************************/
 AL_TPictureMetaData* AL_PictureMetaData_Create(void);
-AL_TPictureMetaData* AL_PictureMetaData_Clone(AL_TPictureMetaData* pMeta);
+AL_TPictureMetaData* AL_PictureMetaData_Clone(AL_TPictureMetaData const* pMeta);
 
 /*!@}*/

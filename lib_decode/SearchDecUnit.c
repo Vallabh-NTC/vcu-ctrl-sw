@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "SearchDecUnit.h"
 #include "lib_common/Nuts.h"
-#include "lib_common/SEI.h"
+#include "lib_common/SeiInternal.h"
 #include "lib_common/Utils.h"
 #include "lib_common/AvcUtils.h"
 #include "lib_common/HevcUtils.h"
@@ -54,6 +54,12 @@ void AL_SearchDecUnit_AddNals(AL_TDecUnitSearchCtx* pCtx, AL_TStartCode const* p
   for(int32_t i = 0; i < iNumNalSC; i++)
   {
     dst[pCtx->iNalCount].tStartCode = pNalSC[i];
+
+    if(pCtx->eCodec == AL_CODEC_HEVC)
+    {
+      dst[pCtx->iNalCount].tStartCode.uReserved.multilayer.uLayerID = (pCtx->pStream[pNalSC[i].uPosition + 3] & 1) << 5;
+      dst[pCtx->iNalCount].tStartCode.uReserved.multilayer.uLayerID |= (pCtx->pStream[pNalSC[i].uPosition + 4] & 0xf8) >> 3;
+    }
 
     if(i + 1 == iNumNalSC)
       dst[pCtx->iNalCount].uSize = DeltaPosition(pNalSC[i].uPosition, uLastByte, pCtx->uStreamBufSize);
@@ -157,13 +163,12 @@ static bool checkSeiUUID(uint8_t const* pBufs, AL_TNal const* pNal, AL_ECodec eC
 
   if(eCodec == AL_CODEC_AVC)
     iStart = 6;
-  int32_t const iSize = ARRAY_SIZE(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID);
 
-  for(int32_t i = 0; i < iSize; i++)
+  for(int32_t i = 0; i < UUID_SIZE; i++)
   {
     int32_t iPosition = (pNal->tStartCode.uPosition + iStart + i) % iTotalSize;
 
-    if(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID[i] != pBufs[iPosition])
+    if(ALLEGRO_NUM_SLICES_SEI_UUID[i] != pBufs[iPosition])
       return false;
   }
 
@@ -179,7 +184,7 @@ static int32_t getNumSliceInSei(uint8_t const* pBufs, AL_TNal* pNal, AL_ECodec e
 
   if(eCodec == AL_CODEC_AVC)
     iStart = 6;
-  int32_t const iSize = ARRAY_SIZE(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID);
+  int32_t const iSize = ARRAY_SIZE(ALLEGRO_NUM_SLICES_SEI_UUID);
   int32_t iPosition = (pNal->tStartCode.uPosition + iStart + iSize) % iTotalSize;
   return pBufs[iPosition];
 }

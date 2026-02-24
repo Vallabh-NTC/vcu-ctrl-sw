@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -19,7 +19,7 @@ class FrameReader
 protected:
   std::ifstream& m_recFile;
   bool m_bLoopFile;
-  int32_t m_uTotalFrameCount;
+  AL_64U m_uTotalFrameCount;
 
   FrameReader(std::ifstream& iRecFile, bool bLoopFrames) :
     m_recFile(iRecFile),
@@ -27,14 +27,14 @@ protected:
     m_uTotalFrameCount(0) {};
 
 public:
-  inline int32_t GetTotalFrameCnt() const { return m_uTotalFrameCount; }
+  inline AL_64U GetTotalFrameCnt() const { return m_uTotalFrameCount; }
 
   virtual bool ReadFrame(AL_TBuffer* pFrameBuffer) = 0;
 
-  virtual void SeekAbsolute(uint32_t uFrameIdx) = 0;
-  virtual void SeekRelative(int32_t iFrameIdxDelta) = 0;
+  virtual void SeekAbsolute(AL_64U uFrameIdx) = 0;
+  virtual void SeekRelative(AL_64S iFrameIdxDelta) = 0;
 
-  int32_t GotoNextPicture(int32_t iFileFrameRate, int32_t iEncFrameRate, int32_t iFilePictCount, int32_t iEncPictCount);
+  AL_64S GotoNextPicture(int32_t iFileFrameRate, int32_t iEncFrameRate, AL_64S iFilePictCount, AL_64S iEncPictCount);
 
   size_t GetFileSize();
 

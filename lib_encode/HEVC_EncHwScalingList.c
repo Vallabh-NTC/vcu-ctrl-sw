@@ -1,12 +1,42 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "EncHwScalingList.h"
+#include "HEVC_EncHwScalingList.h"
 #include "lib_rtos/lib_rtos.h"
+#include "lib_rtos/types.h"
+
+/****************************************************************************/
+static int32_t const AL_SLOW_ENC_HEVC_SCL_ORDER_8x8[64] = // scaling list when 4 samples / cycles in transquant
+{
+  0, 8, 16, 24,
+  32, 40, 48, 56,
+  1, 9, 17, 25,
+  33, 41, 49, 57,
+  2, 10, 18, 26,
+  34, 42, 50, 58,
+  3, 11, 19, 27,
+  35, 43, 51, 59,
+  4, 12, 20, 28,
+  36, 44, 52, 60,
+  5, 13, 21, 29,
+  37, 45, 53, 61,
+  6, 14, 22, 30,
+  38, 46, 54, 62,
+  7, 15, 23, 31,
+  39, 47, 55, 63
+};
+
+/****************************************************************************/
+static int32_t const AL_ENC_HEVC_SCL_ORDER_4x4[16] =
+{
+  0, 4, 8, 12,
+  1, 5, 9, 13,
+  2, 6, 10, 14,
+  3, 7, 11, 15
+};
 
 /****************************************************************************/
 static const int32_t* pSCL_HEVC_8x8_ORDER = AL_SLOW_ENC_HEVC_SCL_ORDER_8x8;
-static const int32_t* pSCL_AVC_8x8_ORDER = AL_SLOW_AVC_ENC_SCL_ORDER_8x8;
 
 static const int32_t* pSCL_16x16_ORDER = AL_SLOW_ENC_HEVC_SCL_ORDER_8x8;
 
@@ -45,105 +75,67 @@ static void AL_sWriteInvCoeff(const uint8_t* pSrc, const int32_t* pScan, int32_t
   *pBuf += iNumWord;
 }
 
-/******************************************************************************/
-void AL_AVC_WriteEncHwScalingList(AL_TSCLParam const* pSclLst, AL_THwScalingList(*pHwSclLst)[2][6], uint8_t chroma_format_idc, uint8_t* pBuf)
+// quantification scale for HEVC
+static int32_t const g_quantScales[6] =
 {
-  uint8_t const* pSrcInv;
-  uint32_t const* pSrcFwd;
-  uint32_t* pBuf32 = (uint32_t*)pBuf;
+  419430, 372827, 328965, 294337, 262144, 233016
+};  // 2^24 / level_scale[iQPRem]
 
-  Rtos_Assert((1 & (size_t)pBuf) == 0);
+/******************************************************************************/
+static void AL_HEVC_sGenFwdDC(AL_TSCLParam const* pSclLst, int32_t iQpRem, int32_t iDir, AL_TLevelsDC* pFwd)
+{
+  (*pFwd)[0] = g_quantScales[iQpRem] / pSclLst->scaling_list_dc_coeff[0][(3 * iDir)];
+  (*pFwd)[1] = g_quantScales[iQpRem] / pSclLst->scaling_list_dc_coeff[0][(3 * iDir) + 1];
+  (*pFwd)[2] = g_quantScales[iQpRem] / pSclLst->scaling_list_dc_coeff[0][(3 * iDir) + 2];
+  (*pFwd)[3] = g_quantScales[iQpRem] / pSclLst->scaling_list_dc_coeff[1][(3 * iDir)];
+}
 
-  // Inverse scaling matrix
+/******************************************************************************/
+static void AL_HEVC_sGenFwdLvl4x4(uint8_t const* pMtx, int32_t iQpRem, AL_TLevels4x4* pFwd)
+{
+  for(int32_t i = 0; i < 16; i++)
+    (*pFwd)[i] = g_quantScales[iQpRem] / pMtx[i];
+}
 
-  // 8x8 luma Intra
-  pSrcInv = pSclLst->ScalingList[1][0];
-  AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
+/******************************************************************************/
+static void AL_HEVC_sGenFwdLvl8x8(uint8_t const* pMtx, int32_t iQpRem, AL_TLevels8x8* pFwd)
+{
+  for(int32_t i = 0; i < 64; i++)
+    (*pFwd)[i] = g_quantScales[iQpRem] / pMtx[i];
+}
 
-  if(chroma_format_idc == 3)
+/******************************************************************************/
+void AL_HEVC_GenerateHwScalingList(AL_TSCLParam const* pSclLst, AL_THwScalingList(*pHwSclLst)[2][6])
+{
+  for(int32_t iQpRem = 0; iQpRem < 6; iQpRem++)
   {
-    // 8x8 Cb Intra
-    pSrcInv = pSclLst->ScalingList[1][1];
-    AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
+    // Intra
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[3][(3 * AL_SL_INTRA)], iQpRem, &(*pHwSclLst)[0][iQpRem].t32x32);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTRA)], iQpRem, &(*pHwSclLst)[0][iQpRem].t16x16Y);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTRA) + 1], iQpRem, &(*pHwSclLst)[0][iQpRem].t16x16Cb);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTRA) + 2], iQpRem, &(*pHwSclLst)[0][iQpRem].t16x16Cr);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTRA)], iQpRem, &(*pHwSclLst)[0][iQpRem].t8x8Y);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTRA) + 1], iQpRem, &(*pHwSclLst)[0][iQpRem].t8x8Cb);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTRA) + 2], iQpRem, &(*pHwSclLst)[0][iQpRem].t8x8Cr);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTRA)], iQpRem, &(*pHwSclLst)[0][iQpRem].t4x4Y);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTRA) + 1], iQpRem, &(*pHwSclLst)[0][iQpRem].t4x4Cb);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTRA) + 2], iQpRem, &(*pHwSclLst)[0][iQpRem].t4x4Cr);
 
-    // 8x8 Cr Intra
-    pSrcInv = pSclLst->ScalingList[1][2];
-    AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
-  }
+    AL_HEVC_sGenFwdDC(pSclLst, iQpRem, AL_SL_INTRA, &(*pHwSclLst)[0][iQpRem].tDC);
 
-  // 8x8 luma Inter
-  pSrcInv = pSclLst->ScalingList[1][3];
-  AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
+    // Inter
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[3][(3 * AL_SL_INTER)], iQpRem, &(*pHwSclLst)[1][iQpRem].t32x32);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTER)], iQpRem, &(*pHwSclLst)[1][iQpRem].t16x16Y);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTER) + 1], iQpRem, &(*pHwSclLst)[1][iQpRem].t16x16Cb);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[2][(3 * AL_SL_INTER) + 2], iQpRem, &(*pHwSclLst)[1][iQpRem].t16x16Cr);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTER)], iQpRem, &(*pHwSclLst)[1][iQpRem].t8x8Y);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTER) + 1], iQpRem, &(*pHwSclLst)[1][iQpRem].t8x8Cb);
+    AL_HEVC_sGenFwdLvl8x8(pSclLst->ScalingList[1][(3 * AL_SL_INTER) + 2], iQpRem, &(*pHwSclLst)[1][iQpRem].t8x8Cr);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTER)], iQpRem, &(*pHwSclLst)[1][iQpRem].t4x4Y);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTER) + 1], iQpRem, &(*pHwSclLst)[1][iQpRem].t4x4Cb);
+    AL_HEVC_sGenFwdLvl4x4(pSclLst->ScalingList[0][(3 * AL_SL_INTER) + 2], iQpRem, &(*pHwSclLst)[1][iQpRem].t4x4Cr);
 
-  if(chroma_format_idc == 3)
-  {
-    // 8x8 Cb Inter
-    pSrcInv = pSclLst->ScalingList[1][4];
-    AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
-
-    // 8x8 Cr Inter
-    pSrcInv = pSclLst->ScalingList[1][5];
-    AL_sWriteInvCoeff(pSrcInv, pSCL_AVC_8x8_ORDER, 64, &pBuf32);
-  }
-
-  // 4x4 Luma Intra
-  pSrcInv = pSclLst->ScalingList[0][0];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // 4x4 Cb Intra
-  pSrcInv = pSclLst->ScalingList[0][1];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // 4x4 Cr Intra
-  pSrcInv = pSclLst->ScalingList[0][2];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // 4x4 Luma Inter
-  pSrcInv = pSclLst->ScalingList[0][3];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // 4x4 Cb Inter
-  pSrcInv = pSclLst->ScalingList[0][4];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // 4x4 Cr Inter
-  pSrcInv = pSclLst->ScalingList[0][5];
-  AL_sWriteInvCoeff(pSrcInv, AL_AVC_ENC_SCL_ORDER_4x4, 16, &pBuf32);
-
-  // Forward scaling Matrix
-  // 8x8 luma / Cb / Cr
-  for(int32_t q = 0; q < 6; ++q) // QP Modulo 6
-  {
-    for(int32_t m = 0; m < 2; ++m) // Mode : 0 = Intra; 1 = Inter
-    {
-      pSrcFwd = (*pHwSclLst)[m][q].t8x8Y;
-      AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 16, pSCL_AVC_8x8_ORDER);
-
-      if(chroma_format_idc == 3)
-      {
-        pSrcFwd = (*pHwSclLst)[m][q].t8x8Cb;
-        AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 16, pSCL_AVC_8x8_ORDER);
-
-        pSrcFwd = (*pHwSclLst)[m][q].t8x8Cr;
-        AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 16, pSCL_AVC_8x8_ORDER);
-      }
-    }
-  }
-
-  // 4x4 luma
-  for(int32_t q = 0; q < 6; ++q) // QP Modulo 6
-  {
-    for(int32_t m = 0; m < 2; ++m) // Mode : 0 = Intra; 1 = Inter
-    {
-      pSrcFwd = (*pHwSclLst)[m][q].t4x4Y;
-      AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 4, AL_AVC_ENC_SCL_ORDER_4x4);
-
-      pSrcFwd = (*pHwSclLst)[m][q].t4x4Cb;
-      AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 4, AL_AVC_ENC_SCL_ORDER_4x4);
-
-      pSrcFwd = (*pHwSclLst)[m][q].t4x4Cr;
-      AL_sWriteFwdCoeffs(&pBuf32, pSrcFwd, 4, AL_AVC_ENC_SCL_ORDER_4x4);
-    }
+    AL_HEVC_sGenFwdDC(pSclLst, iQpRem, AL_SL_INTER, &(*pHwSclLst)[1][iQpRem].tDC);
   }
 }
 
@@ -349,4 +341,3 @@ void AL_HEVC_WriteEncHwScalingList(AL_TSCLParam const* pSclLst, AL_THwScalingLis
     }
   }
 }
-

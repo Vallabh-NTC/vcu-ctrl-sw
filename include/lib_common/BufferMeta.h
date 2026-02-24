@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -25,17 +25,15 @@ typedef enum AL_EMetaType
   AL_META_TYPE_HDR, /*!< hdr settings for the frame */
   AL_META_TYPE_RATECTRL, /*!< rate-control statistics */
   AL_META_TYPE_DISPLAY_INFO,
-  AL_META_TYPE_PICTURE_DECODE, /* decode picture meta info*/
-  AL_META_QP_TABLE, /* QP table metadata that allows one QP table per type of frame I, P, B*/
+  AL_META_TYPE_PICTURE_DECODE, /*!< decode picture meta info */
+  AL_META_TYPE_QP_TABLE, /* QP table metadata that allows one QP table per type of frame I, P, B*/
   AL_META_TYPE_MAX, /* sentinel */
   AL_META_TYPE_EXTENDED = 0x7F000000 /*!< user can define their own metadatas after this value */
 }AL_EMetaType;
 
-AL_DEPRECATED_ENUM_VALUE(AL_EMetaType, AL_META_TYPE_SOURCE, AL_META_TYPE_PIXMAP, "Renamed. Use AL_META_TYPE_PIXMAP.");
-
 typedef struct AL_TMetaData AL_TMetaData;
 typedef bool (* AL_FCN_MetaDestroy) (AL_TMetaData* pMeta);
-typedef AL_TMetaData* (* AL_FCN_MetaClone) (AL_TMetaData* pMeta);
+typedef AL_TMetaData* (* AL_FCN_MetaClone) (AL_TMetaData const* pMeta);
 
 /*****************************************************************************
    \brief Metadatas are used to add useful information to a buffer. The user

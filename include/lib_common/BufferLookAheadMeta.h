@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -42,8 +42,8 @@ typedef struct AL_TLookAheadMetaData
    The parameters are initialized to an invalid value (-1) by default.
 *****************************************************************************/
 AL_TLookAheadMetaData* AL_LookAheadMetaData_Create(void);
-AL_TLookAheadMetaData* AL_LookAheadMetaData_Clone(AL_TLookAheadMetaData* pMeta);
-void AL_LookAheadMetaData_Copy(AL_TLookAheadMetaData* pMetaSrc, AL_TLookAheadMetaData* pMetaDest);
+AL_TLookAheadMetaData* AL_LookAheadMetaData_Clone(AL_TLookAheadMetaData const* pMeta);
+void AL_LookAheadMetaData_Copy(AL_TLookAheadMetaData const* pMetaSrc, AL_TLookAheadMetaData* pMetaDest);
 void AL_LookAheadMetaData_Reset(AL_TLookAheadMetaData* pMeta);
 
 /*!@}*/

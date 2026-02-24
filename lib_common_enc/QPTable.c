@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common_enc/QPTableInternal.h"
-#include "lib_common_enc/ParamConstraints.h"
+#include "lib_common_enc/ParamConstraintsInternal.h"
 #include "lib_common/Utils.h"
 #include "lib_common/Round.h"
 #include "lib_common/Error.h"

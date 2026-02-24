@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "lib_rate_ctrl/PluginInterface.h"
+#include "lib_rate_ctrl/I_Plugin.h"
 
 // Example RC Plugin structure given to us by the user
 // This needs to be validated as the data is coming from user space

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
@@ -11,7 +11,7 @@ static bool SrcMeta_Destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TPixMapMetaData* AL_PixMapMetaData_Clone(AL_TPixMapMetaData* pMeta)
+AL_TPixMapMetaData* AL_PixMapMetaData_Clone(AL_TPixMapMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -29,9 +29,9 @@ AL_TPixMapMetaData* AL_PixMapMetaData_Clone(AL_TPixMapMetaData* pMeta)
   return pClone;
 }
 
-static AL_TMetaData* SrcMeta_Clone(AL_TMetaData* pMeta)
+static AL_TMetaData* SrcMeta_Clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_PixMapMetaData_Clone((AL_TPixMapMetaData*)pMeta);
+  return (AL_TMetaData*)AL_PixMapMetaData_Clone((AL_TPixMapMetaData const*)pMeta);
 }
 
 bool AL_PixMapMetaData_AddPlane(AL_TPixMapMetaData* pMeta, AL_TPlane tPlane, AL_EPlaneId ePlaneId)

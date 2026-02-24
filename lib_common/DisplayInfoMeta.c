@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/DisplayInfoMeta.h"
 #include "lib_rtos/lib_rtos.h"
 
-AL_TDisplayInfoMetaData* AL_DisplayInfoMetaData_Clone(AL_TDisplayInfoMetaData* pMeta)
+AL_TDisplayInfoMetaData* AL_DisplayInfoMetaData_Clone(AL_TDisplayInfoMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -19,9 +19,9 @@ AL_TDisplayInfoMetaData* AL_DisplayInfoMetaData_Clone(AL_TDisplayInfoMetaData* p
   return pNewMeta;
 }
 
-static AL_TMetaData* SrcMeta_Clone(AL_TMetaData* pMeta)
+static AL_TMetaData* SrcMeta_Clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_DisplayInfoMetaData_Clone((AL_TDisplayInfoMetaData*)pMeta);
+  return (AL_TMetaData*)AL_DisplayInfoMetaData_Clone((AL_TDisplayInfoMetaData const*)pMeta);
 }
 
 static bool destroy(AL_TMetaData* pMeta)

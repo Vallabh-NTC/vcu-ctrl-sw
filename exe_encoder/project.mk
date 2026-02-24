@@ -48,18 +48,8 @@ endif
 
 
 
-ifneq ($(ENABLE_SH_TESTS),0)
-TEST_TARGETS+=$(BIN)/AL_Encoder.test
 
-AL_Encoder.test: $(BIN)/AL_Encoder.test
-
-$(BIN)/AL_Encoder.test: $(THIS_EXE_ENCODER)/tests.sh $(BIN)/AL_Encoder.exe
-	@echo "TEST $<"
-	@rm -f $@
-	@$(TEST)/run.sh -b $(BIN) -h $< > $@.failed && mv $@.failed $@
-endif
-
-$(BIN)/AL_Encoder.exe: $(EXE_ENCODER_OBJ) $(LIB_REFENC_A) $(LIB_REFALLOC_A) $(LIB_ENCODER_A) $(LIB_APP_A) $(LIB_REFFBC_A)
+$(BIN)/AL_Encoder.exe: $(EXE_ENCODER_OBJ) $(LIB_REFENC_A) $(LIB_REFALLOC_A) $(LIB_ENCODER_A) $(LIB_APP_A) $(LIB_REFFBC_A) $(NVP_MODELS) $(LIB_NVE_A)
 AL_Encoder.exe: $(BIN)/AL_Encoder.exe
 TARGETS+=AL_Encoder.exe
 

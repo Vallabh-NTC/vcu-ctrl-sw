@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "Hevc_SliceHeaderParsing.h"
 #include "HevcParser.h"
+#include "lib_rtos/assert.h"
 #include "lib_common/BufConst.h"
 #include "lib_common/HevcUtils.h"
 #include "lib_common/SliceConsts.h"
@@ -14,6 +15,7 @@
 /*****************************************************************************/
 void AL_HEVC_SetDefaultSliceHeader(AL_THevcSliceHdr* pSlice)
 {
+
   Rtos_Memset(pSlice, 0, offsetof(AL_THevcSliceHdr, entry_point_offset_minus1));
 
   pSlice->pic_output_flag = 1;
@@ -28,7 +30,7 @@ static void TransferRps(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pLastSlice)
   pSlice->NumPocLtCurr = pLastSlice->NumPocLtCurr;
   pSlice->NumPocStFoll = pLastSlice->NumPocStFoll;
   pSlice->NumPocLtFoll = pLastSlice->NumPocLtFoll;
-  pSlice->NumPocTotalCurr = pLastSlice->NumPocTotalCurr;
+  pSlice->NumPicTotalCurr = pLastSlice->NumPicTotalCurr;
 }
 
 /*****************************************************************************/
@@ -125,12 +127,12 @@ static bool AL_HEVC_spread_weight_table(AL_TRbspParser* pRP, AL_THevcSliceHdr* p
    \param[in]  pRP             Pointer to NAL buffer
    \param[out] pSlice          Pointer to the slice header structure that will
                               be filled
-   \param[in]  NumPocTotalCurr Number of pictures available as reference for
+   \param[in]  NumPicTotalCurr Number of pictures available as reference for
                               the current picture
 *****************************************************************************/
-static void AL_HEVC_sref_pic_list_modification(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice, uint8_t NumPocTotalCurr)
+static void AL_HEVC_sref_pic_list_modification(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice, uint8_t NumPicTotalCurr)
 {
-  uint8_t list_entry_size = ceil_log2(NumPocTotalCurr);
+  uint8_t list_entry_size = ceil_log2(NumPicTotalCurr);
 
   // default values
   pSlice->ref_pic_modif.ref_pic_list_modification_flag_l0 = 0;
@@ -208,7 +210,7 @@ static void InitRefPictSet(AL_THevcSliceHdr* pSlice)
     }
   }
 
-  pSlice->NumPocTotalCurr = pSlice->NumPocStCurrBefore + pSlice->NumPocStCurrAfter + pSlice->NumPocLtCurr;
+  pSlice->NumPicTotalCurr = pSlice->NumPocStCurrBefore + pSlice->NumPocStCurrAfter + pSlice->NumPocLtCurr;
 }
 
 /*****************************************************************************/
@@ -224,8 +226,10 @@ static bool isHevcIDR(AL_ENut eNUT)
 }
 
 /*****************************************************************************/
-bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_THevcPps pPPSTable[])
+bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_THevcPps pPPSTable[], AL_THevcRefListBuilderCB* pRefListBuilderCB)
 {
+  int iTotalNalSize = pRP->iBufInAvailSize;
+
   AL_HEVC_SetDefaultSliceHeader(pSlice);
 
   if(noValidPpsHasEverBeenParsed(pConceal))
@@ -319,11 +323,13 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
     pSlice->slice_beta_offset_div2 = pPps->pps_beta_offset_div2;
     pSlice->slice_tc_offset_div2 = pPps->pps_tc_offset_div2;
 
-    skip(pRP, pPps->num_extra_slice_header_bits); // slice_reserved_flag
+    int i = 0;
+    skip(pRP, pPps->num_extra_slice_header_bits - i); // slice_reserved_flag
+
     pSlice->slice_type = ue(pRP);
 
     // check slice_type coherency
-    if((pSlice->slice_type > AL_SLICE_I) || (pSlice->IdrPicFlag && pSlice->slice_type != AL_SLICE_I))
+    if((pSlice->slice_type > AL_SLICE_I) || (pSlice->IdrPicFlag && pSlice->slice_type != AL_SLICE_I && pSlice->nuh_layer_id == 0))
       return false;
 
     if(pPps->output_flag_present_flag)
@@ -334,11 +340,16 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
     if(pSps->separate_colour_plane_flag)
       pSlice->colour_plane_id = u(pRP, 2);
 
-    if(!pSlice->IdrPicFlag)
+    bool bParsePOC = !pSlice->IdrPicFlag;
+
+    if(bParsePOC)
     {
       int32_t syntax_size = pSps->log2_max_slice_pic_order_cnt_lsb_minus4 + 4;
       pSlice->slice_pic_order_cnt_lsb = u(pRP, syntax_size);
+    }
 
+    if(!pSlice->IdrPicFlag)
+    {
       pSlice->short_term_ref_pic_set_sps_flag = u(pRP, 1);
 
       // check if NAL isn't empty
@@ -442,8 +453,8 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
       if(!more_rbsp_data(pRP))
         return false;
 
-      if(pPps->lists_modification_present_flag && pSlice->NumPocTotalCurr > 1)
-        AL_HEVC_sref_pic_list_modification(pRP, pSlice, pSlice->NumPocTotalCurr);
+      if(pPps->lists_modification_present_flag && pSlice->NumPicTotalCurr > 1)
+        AL_HEVC_sref_pic_list_modification(pRP, pSlice, pSlice->NumPicTotalCurr);
 
       if(pSlice->slice_type == AL_SLICE_B)
         pSlice->mvd_l1_zero_flag = u(pRP, 1);
@@ -471,8 +482,12 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
 
       if((pPps->weighted_pred_flag && pSlice->slice_type == AL_SLICE_P) ||
          (pPps->weighted_bipred_flag && pSlice->slice_type == AL_SLICE_B))
+      {
+        (void)pRefListBuilderCB;
+
         if(!AL_HEVC_spread_weight_table(pRP, pSlice))
           return false;
+      }
 
       pSlice->five_minus_max_num_merge_cand = ue(pRP);
 
@@ -520,6 +535,8 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
       pSlice->slice_loop_filter_across_slices_enabled_flag = u(pRP, 1);
   }
 
+  bool bNeedEntryPointResilienceCheck = false;
+
   if(pPps->tiles_enabled_flag || pPps->entropy_coding_sync_enabled_flag)
   {
     pSlice->num_entry_point_offsets = ue(pRP);
@@ -539,14 +556,19 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
       int32_t syntax_size = pSlice->offset_len_minus1 + 1;
 
       for(int32_t i = 1; i <= pSlice->num_entry_point_offsets; ++i)
+      {
         pSlice->entry_point_offset_minus1[i] = u(pRP, syntax_size);
+        bNeedEntryPointResilienceCheck = true;
+      }
     }
   }
 
   if(pPps->slice_segment_header_extension_present_flag)
   {
     uint32_t slice_header_extension_length = ue(pRP);
-    skip(pRP, slice_header_extension_length << 3); // slice_header_extension_data_byte
+    uint32_t uBeginExt = 0;
+    uint32_t uEndExt = 0;
+    skip(pRP, (slice_header_extension_length << 3) - (uEndExt - uBeginExt)); // slice_header_extension_data_byte
   }
 
   if(!byte_alignment(pRP))
@@ -555,5 +577,21 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
   if(!more_rbsp_data(pRP))
     return false;
 
+  if(bNeedEntryPointResilienceCheck)
+  {
+    uint32_t uChkStrSizeInBytes = ((iTotalNalSize << 3) - pRP->iCurrentBitIndex) >> 3;
+    uint32_t uChkStrConsumed = 0;
+
+    for(int32_t i = 1; i <= pSlice->num_entry_point_offsets; ++i)
+    {
+      uChkStrConsumed += (pSlice->entry_point_offset_minus1[i] + 1);
+
+      if(uChkStrConsumed > uChkStrSizeInBytes)
+      {
+        Rtos_Log(AL_LOG_ERROR, "for pSlice->num_entry_point_offsets=%d, failure with last pSlice->entry_point_offset_minus1[]= %8.8x and uChkStrConsumed %8.8x vs uChkStrSize %8.8x\n", pSlice->num_entry_point_offsets, pSlice->entry_point_offset_minus1[i], uChkStrConsumed, uChkStrSizeInBytes);
+        return false;
+      }
+    }
+  }
   return true;
 }

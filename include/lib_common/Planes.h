@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -100,5 +100,12 @@ int32_t AL_Plane_GetBufferPlanes(AL_TPicFormat tPicFormat, AL_EPlaneId usedPlane
    \return Returns true if the plane is contained in the buffer, false otherwise
 *****************************************************************************/
 bool AL_Plane_Exists(AL_EPlaneMode ePlaneMode, bool bIsCompressed, AL_EPlaneId ePlaneId);
+
+/*****************************************************************************
+   \brief return the Map PlaneId corresponding to the given Pixel PlaneId
+   \param[in] ePlaneId The plane type
+   \return Returns a valid Map PlaneId, or AL_PLANE_MAX_ENUM on failure
+*****************************************************************************/
+AL_EPlaneId AL_Plane_GetMapPlane(AL_EPlaneId ePlaneId);
 
 /*!@}*/

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "DecoderFeeder.h"
@@ -23,7 +23,7 @@ typedef struct AL_TDecoderFeederS
 
   AL_THREAD slave;
   AL_TBuffer* startCodeStreamView;
-  Rtos_AtomicInt keepGoing;
+  Rtos_AtomicVolatileType keepGoing;
   bool decoderHasBeenFlushed;
   bool endWithAccessUnit;
 }AL_TDecoderFeeder;
@@ -39,7 +39,7 @@ static bool CircBuffer_IsFull(AL_TBuffer* pBuf)
 
 static bool shouldKeepGoing(AL_TDecoderFeeder* slave)
 {
-  Rtos_AtomicInt keepGoing = Rtos_AtomicDecrement(&slave->keepGoing);
+  Rtos_AtomicVolatileType keepGoing = Rtos_AtomicDecrement(&slave->keepGoing);
   Rtos_AtomicIncrement(&slave->keepGoing);
   return keepGoing >= 0 || !slave->endWithAccessUnit;
 }

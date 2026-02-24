@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -132,7 +132,6 @@ AL_PADDR AL_Allocator_GetPhysicalAddr(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
    memory buffers
    \param[in] pVirtualAddr Virtual address at which the area starts.
    \param[in] zSize Size of the area to synchronize for device.
-   \return a pointer to the allocated memory in the IP address space
 ******************************************************************************/
 static inline
 void AL_Allocator_SyncForCpu(AL_TAllocator* pAllocator, AL_VADDR pVirtualAddr, size_t zSize)
@@ -141,13 +140,19 @@ void AL_Allocator_SyncForCpu(AL_TAllocator* pAllocator, AL_VADDR pVirtualAddr, s
     pAllocator->vtable->pfnSyncForCpu(pAllocator, pVirtualAddr, zSize);
 }
 
+// Rtos_MemoryFnCB type compliance
+static inline
+void SyncForCpuCacheCallBack(void* pAllocator, void* pVirtualAddr, size_t zSize)
+{
+  AL_Allocator_SyncForCpu((AL_TAllocator*)pAllocator, (AL_VADDR)pVirtualAddr, zSize);
+}
+
 /******************************************************************************
    \brief Synchronize a memory area for the Device
    \param[in] pAllocator the Allocator interface object used to allocate the
    memory buffers
    \param[in] pVirtualAddr Virtual address at which the area starts.
    \param[in] zSize Size of the area to synchronize for device.
-   \return a pointer to the allocated memory in the IP address space
 ******************************************************************************/
 static inline
 void AL_Allocator_SyncForDevice(AL_TAllocator* pAllocator, AL_VADDR pVirtualAddr, size_t zSize)
@@ -156,16 +161,22 @@ void AL_Allocator_SyncForDevice(AL_TAllocator* pAllocator, AL_VADDR pVirtualAddr
     pAllocator->vtable->pfnSyncForDevice(pAllocator, pVirtualAddr, zSize);
 }
 
+// Rtos_MemoryFnCB type compliance
+static inline
+void SyncForDeviceCacheCallBack(void* pAllocator, void* pVirtualAddr, size_t zSize)
+{
+  AL_Allocator_SyncForDevice((AL_TAllocator*)pAllocator, (AL_VADDR)pVirtualAddr, zSize);
+}
+
 /******************************************************************************
    \brief Setup cache callbacks to use the allocator ones
    \param[in] pAllocator the Allocator interface object to use for cache
    callbacks
-   \return a pointer to the allocated memory in the IP address space
 ******************************************************************************/
 static inline
 void AL_Allocator_InitCacheCallbacks(AL_TAllocator* pAllocator)
 {
-  Rtos_InitCacheCB(pAllocator, (Rtos_MemoryFnCB)AL_Allocator_SyncForCpu, (Rtos_MemoryFnCB)AL_Allocator_SyncForDevice);
+  Rtos_InitCacheCB(pAllocator, SyncForCpuCacheCallBack, SyncForDeviceCacheCallBack);
 }
 
 /******************************************************************************

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "PixMapBufferInternal.h"
@@ -269,14 +269,14 @@ bool AL_PixMapBuffer_AddPlanes(AL_TBuffer* pBuf, AL_HANDLE hChunk, size_t zSize,
   return true;
 }
 
-uint8_t* AL_PixMapBuffer_GetPlaneAddress(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId)
+AL_VADDR AL_PixMapBuffer_GetPlaneAddress(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL)
     return NULL;
 
-  uint8_t* pPlaneVADDR = AL_Buffer_GetDataChunk(pBuf, pMeta->tPlanes[ePlaneId].iChunkIdx);
+  AL_VADDR pPlaneVADDR = AL_Buffer_GetDataChunk(pBuf, pMeta->tPlanes[ePlaneId].iChunkIdx);
 
   if(pPlaneVADDR == NULL)
     return NULL;
@@ -286,7 +286,7 @@ uint8_t* AL_PixMapBuffer_GetPlaneAddress(AL_TBuffer const* pBuf, AL_EPlaneId ePl
 
 AL_PADDR AL_PixMapBuffer_GetPlanePhysicalAddress(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL)
     return 0;
@@ -301,7 +301,7 @@ AL_PADDR AL_PixMapBuffer_GetPlanePhysicalAddress(AL_TBuffer const* pBuf, AL_EPla
 
 int32_t AL_PixMapBuffer_GetPlanePitch(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL || pMeta->tPlanes[ePlaneId].iChunkIdx == AL_BUFFER_BAD_CHUNK)
     return 0;
@@ -311,7 +311,7 @@ int32_t AL_PixMapBuffer_GetPlanePitch(AL_TBuffer const* pBuf, AL_EPlaneId ePlane
 
 AL_TDimension AL_PixMapBuffer_GetDimension(AL_TBuffer const* pBuf)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL)
   {
@@ -358,7 +358,7 @@ bool AL_PixMapBuffer_SetFourCC(AL_TBuffer* pBuf, TFourCC tFourCC)
 
 int32_t AL_PixMapBuffer_GetPlaneChunkIdx(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL)
     return AL_BUFFER_BAD_CHUNK;
@@ -368,7 +368,7 @@ int32_t AL_PixMapBuffer_GetPlaneChunkIdx(AL_TBuffer const* pBuf, AL_EPlaneId ePl
 
 int32_t AL_PixMapBuffer_GetDefinedPlanes(AL_TBuffer const* pBuf, AL_EPlaneId planes[AL_PLANE_MAX_ENUM])
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   if(pMeta == NULL)
     return 0;
@@ -389,7 +389,7 @@ int32_t AL_PixMapBuffer_GetDefinedPlanes(AL_TBuffer const* pBuf, AL_EPlaneId pla
 
 uint32_t AL_PixMapBuffer_GetPositionOffset(AL_TBuffer const* pBuf, AL_TPosition tPos, AL_EPlaneId ePlaneId)
 {
-  AL_TPixMapMetaData* pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
+  AL_TPixMapMetaData const* pMeta = (AL_TPixMapMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_PIXMAP);
 
   uint32_t uPitch = pMeta->tPlanes[ePlaneId].iPitch;
   AL_EChromaMode eChromaMode = AL_GetChromaMode(pMeta->tFourCC);

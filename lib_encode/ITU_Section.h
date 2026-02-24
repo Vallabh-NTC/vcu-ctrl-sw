@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 
 typedef struct AL_TNuts
 {
-  AL_TNalHeader (* GetNalHeader)(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTempId);
+  AL_TNalHeader (* GetNalHeader)(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTemporalId);
   int32_t spsNut;
   int32_t ppsNut;
   int32_t vpsNut;

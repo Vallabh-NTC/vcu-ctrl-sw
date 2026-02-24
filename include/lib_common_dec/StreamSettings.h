@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -19,5 +19,7 @@ typedef struct AL_TStreamSettings
   AL_EProfile eProfile; /*!< Stream's profile */
   AL_ESequenceMode eSequenceMode; /*!< Stream's sequence mode */
   bool bDecodeIntraOnly;  /*!< Should the decoder process only I frames  */
+  bool bDecodeRefOnly;  /*!< Should the decoder process only Reference frames  */
+  uint32_t uTemporalLayer; /*!< Temporal Layer to be decoded (0xFFFFFFFF = all layers)*/
   int32_t iMaxRef; /*!< Stream's max reference frame, 0 if not used*/
 }AL_TStreamSettings;

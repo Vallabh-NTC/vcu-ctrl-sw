@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common_enc/RateCtrlMeta.h"
@@ -17,9 +17,9 @@ static bool destroy(AL_TMetaData* pBaseMeta)
 
 static AL_TRateCtrlMetaData* create(AL_TAllocator* pAllocator, uint32_t uBufMVSize);
 
-static AL_TMetaData* clone(AL_TMetaData* pBaseMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pBaseMeta)
 {
-  AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)pBaseMeta;
+  AL_TRateCtrlMetaData const* pMeta = (AL_TRateCtrlMetaData const*)pBaseMeta;
   AL_TRateCtrlMetaData* pNewMeta = NULL;
 
   if(pMeta->pMVBuf != NULL)
@@ -107,13 +107,7 @@ AL_TRateCtrlMetaData* AL_RateCtrlMetaData_CustomCreate(AL_TAllocator* pAllocator
   return pMeta;
 }
 
-AL_TRateCtrlMetaData* AL_RateCtrlMetaData_Create(AL_TAllocator* pAllocator, AL_TDimension tDim, uint8_t uLog2MaxCuSize, AL_ECodec eCodec)
-{
-  AL_ERateCtrlStatMode eStatCtrl = AL_RATECTRL_STAT_MODE_MV | AL_RATECTRL_STAT_MODE_DEFAULT;
-  return AL_RateCtrlMetaData_CustomCreate(pAllocator, eStatCtrl, tDim, uLog2MaxCuSize, eCodec);
-}
-
-AL_TRateCtrlMetaData* AL_RateCtrlMetaData_Create_WithBuffer(AL_TBuffer* pMVBuf)
+AL_TRateCtrlMetaData* AL_RateCtrlMetaData_Create(AL_TBuffer* pMVBuf)
 {
   return create_with_buf(pMVBuf);
 }

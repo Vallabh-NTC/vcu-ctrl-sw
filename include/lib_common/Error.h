@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -117,7 +117,6 @@ typedef enum AL_ERR
   AL_ERR_BUFFER_STACK_FULL = AL_DEF_ERROR(42),
   /*! Loadable version not handled, buffer corrupted... */
   AL_ERR_INVALID_NEURAL_VIDEO_PROCESSOR_LOADABLE = AL_DEF_ERROR(43),
-
   AL_ERR_UNKNOWN,
 }AL_ERR;
 

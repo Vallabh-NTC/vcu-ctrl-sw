@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -19,7 +19,6 @@
 /******************************************************************************/
 void AL_AVC_FillSliceParameters(const AL_TAvcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam, AL_TDecPicParam* pPicParam, bool bConceal);
 void AL_AVC_FillPictParameters(const AL_TAvcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecPicParam* pPicParam);
-void AL_AVC_FillSlicePicIdRegister(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSliceParam);
 int32_t AL_AVC_GetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields);
 AL_EPicStruct AL_AVC_GetPicStruct(AL_TAvcSliceHdr const* pSlice);
 
@@ -27,6 +26,5 @@ AL_EPicStruct AL_AVC_GetPicStruct(AL_TAvcSliceHdr const* pSlice);
 /******************************************************************************/
 void AL_HEVC_FillSliceParameters(AL_THevcSliceHdr const* pSlice, AL_TDecCtx const* pCtx, AL_TDecSliceParam* pSliceParam);
 void AL_HEVC_FillPictParameters(AL_THevcSliceHdr const* pSlice, AL_TDecCtx const* pCtx, AL_TDecPicParam* pPicParam);
-void AL_HEVC_FillSlicePicIdRegister(AL_THevcSliceHdr const* pSlice, AL_TDecCtx* pCtx, AL_TDecPicParam* pPicParam, AL_TDecSliceParam* pSliceParam);
 
 /*!@}*/

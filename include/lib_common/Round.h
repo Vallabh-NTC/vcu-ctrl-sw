@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -48,4 +48,9 @@ static inline AL_64U AL_UnsignedRoundUpAndDivide(AL_64U zVal, AL_64S iRound, AL_
 static inline AL_PADDR AL_PhysAddrRoundUp(AL_PADDR uVal, AL_64S iRnd)
 {
   return ((uVal + iRnd - 1) / iRnd) * iRnd;
+}
+
+static inline AL_64U AL_UnsignedCeilDiv(AL_64U iVal, AL_64U iDiv)
+{
+  return (iVal + iDiv - 1) / iDiv;
 }

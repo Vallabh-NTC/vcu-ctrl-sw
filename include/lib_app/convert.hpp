@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -266,6 +266,7 @@ void XV20_To_P210(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 
 void AYUV_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void AVUY_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
+void VUYA_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void AYUV_To_NV24(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void Y410_To_I4AL(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void Y4AL_To_I4AL(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
@@ -274,6 +275,7 @@ void Y4CL_To_I4CL(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void Y4CM_To_I4CL(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void UYVY_To_I422(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 void ABGR_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
+void BGRA_To_I444(AL_TBuffer const* pSrc, AL_TBuffer* pDst);
 
 /******************************************************************************
    \brief Copy pixels from a source to a destination buffer having both

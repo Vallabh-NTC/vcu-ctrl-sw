@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "AVC_Sections.h"
@@ -7,9 +7,9 @@
 #include "lib_common/Nuts.h"
 #include "lib_common/Utils.h"
 
-AL_TNalHeader GetNalHeaderAvc(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTempId)
+AL_TNalHeader GetNalHeaderAvc(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTemporalId)
 {
-  (void)uTempId, (void)uLayerId;
+  (void)uTemporalId, (void)uLayerId;
   AL_TNalHeader nh;
   nh.size = 1;
   nh.bytes[0] = ((uNalRefIdc & 0x03) << 5) | (uNUT & 0x1F);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <malloc.h>
@@ -29,7 +29,7 @@ static bool DevicePool_Init(struct DevicePool* pDP)
 {
   pDP->pLock = Rtos_CreateMutex();
 
-  if(!pDP->pLock)
+  if(pDP->pLock == NULL)
     return false;
 
   return true;
@@ -37,19 +37,16 @@ static bool DevicePool_Init(struct DevicePool* pDP)
 
 static void DevicePool_Deinit(struct DevicePool* pDP)
 {
-  if(pDP->pLock)
+  if(pDP->pLock != NULL)
     Rtos_DeleteMutex(pDP->pLock);
   pDP->pLock = NULL;
 }
 
 static struct FileDesc* DevicePool_FindEntryByFd(struct DevicePool* pDP, int32_t fd)
 {
-  size_t i;
-  struct FileDesc* pCur;
-
-  for(i = 0; i < POOL_SIZE; ++i)
+  for(int8_t i = 0; i < POOL_SIZE; ++i)
   {
-    pCur = &pDP->pPool[i];
+    struct FileDesc* pCur = &pDP->pPool[i];
 
     if(pCur->iRefCount && fd == pCur->fd)
       return pCur;
@@ -60,14 +57,11 @@ static struct FileDesc* DevicePool_FindEntryByFd(struct DevicePool* pDP, int32_t
 
 static struct FileDesc* DevicePool_FindEntryByName(struct DevicePool* pDP, char const* filename)
 {
-  size_t i;
-  struct FileDesc* pCur;
-
-  for(i = 0; i < POOL_SIZE; ++i)
+  for(int8_t i = 0; i < POOL_SIZE; ++i)
   {
-    pCur = &pDP->pPool[i];
+    struct FileDesc* pCur = &pDP->pPool[i];
 
-    if(pCur->iRefCount > 0 && strcmp(filename, pCur->filename) == 0)
+    if((pCur->iRefCount > 0) && (strcmp(filename, pCur->filename) == 0))
       return pCur;
   }
 
@@ -76,12 +70,9 @@ static struct FileDesc* DevicePool_FindEntryByName(struct DevicePool* pDP, char 
 
 static struct FileDesc* DevicePool_FindFreeEntry(struct DevicePool* pDP)
 {
-  size_t i;
-  struct FileDesc* pCur;
-
-  for(i = 0; i < POOL_SIZE; ++i)
+  for(int8_t i = 0; i < POOL_SIZE; ++i)
   {
-    pCur = &pDP->pPool[i];
+    struct FileDesc* pCur = &pDP->pPool[i];
 
     if(pCur->iRefCount == 0)
       return pCur;
@@ -93,13 +84,12 @@ static struct FileDesc* DevicePool_FindFreeEntry(struct DevicePool* pDP)
 static int32_t DevicePool_Open(struct DevicePool* pDP, char const* filename)
 {
   int32_t iRet = 0;
-  struct FileDesc* pCur;
 
   Rtos_GetMutex(pDP->pLock);
 
-  pCur = DevicePool_FindEntryByName(pDP, filename);
+  struct FileDesc* pCur = DevicePool_FindEntryByName(pDP, filename);
 
-  if(!pCur)
+  if(pCur == NULL)
   {
     pCur = DevicePool_FindFreeEntry(pDP);
 
@@ -130,13 +120,13 @@ static int32_t DevicePool_Open(struct DevicePool* pDP, char const* filename)
 
 static int32_t DevicePool_Close(struct DevicePool* pDP, int32_t fd)
 {
-  struct FileDesc* pEntry;
   int32_t iRet = 0;
+
   Rtos_GetMutex(pDP->pLock);
 
-  pEntry = DevicePool_FindEntryByFd(pDP, fd);
+  struct FileDesc* pEntry = DevicePool_FindEntryByFd(pDP, fd);
 
-  if(!pEntry)
+  if(pEntry == NULL)
   {
     /* We don't have this file descriptor */
     iRet = -1;
@@ -164,14 +154,12 @@ static int32_t DevicePool_Close(struct DevicePool* pDP, int32_t fd)
 static bool g_DevicePoolInit;
 static struct DevicePool g_DevicePool;
 
-static
-void AL_DevicePool_Deinit(void)
+static void AL_DevicePool_Deinit(void)
 {
   DevicePool_Deinit(&g_DevicePool);
 }
 
-static
-bool AL_DevicePool_Init(void)
+static bool AL_DevicePool_Init(void)
 {
   atexit(&AL_DevicePool_Deinit);
   return DevicePool_Init(&g_DevicePool);
@@ -181,7 +169,8 @@ int32_t AL_DevicePool_Open(char const* filename)
 {
   if(!g_DevicePoolInit)
   {
-    AL_DevicePool_Init();
+    if(!AL_DevicePool_Init())
+      return -1;
     g_DevicePoolInit = true;
   }
 

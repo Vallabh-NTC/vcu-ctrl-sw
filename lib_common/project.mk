@@ -9,7 +9,7 @@ LIB_COMMON_SRC:=\
   lib_common/BufferHandleMeta.c\
   lib_common/Fifo.c\
   lib_common/FourCC.c\
-  lib_common/HardwareDriver.c\
+  lib_common/LinuxDriverCommunication.c\
   lib_common/PixMapBuffer.c\
   lib_common/IntVector.c\
   lib_common/Planes.c\
@@ -19,21 +19,30 @@ LIB_COMMON_SRC:=\
   lib_common/StaticFifo.c\
   lib_common/WorkPool.c\
   lib_common/IntFifo.c\
+  lib_common/Profiles.c\
+  lib_common/AxiPropertiesInternal.c
 
 HAS_COLOR_SPACE_CONVERSION=0
 
 
 
 
+
 ifneq ($(ENABLE_AVC),0)
   LIB_COMMON_SRC+=lib_common/AvcLevelsLimit.c
+  LIB_COMMON_SRC+=lib_common/AvcLevels.c
   LIB_COMMON_SRC+=lib_common/AvcUtils.c
 endif
 
 ifneq ($(ENABLE_HEVC),0)
   LIB_COMMON_SRC+=lib_common/HevcLevelsLimit.c
+  LIB_COMMON_SRC+=lib_common/HevcLevels.c
   LIB_COMMON_SRC+=lib_common/HevcUtils.c
 endif
+
+HAS_HEVC_MULTI_LAYER=0
+
+
 
 
 
@@ -49,6 +58,7 @@ ifneq ($(ENABLE_CODEC),0)
   LIB_COMMON_SRC+=lib_common/BufferPictureMeta.c
   LIB_COMMON_SRC+=lib_common/BufferPictureDecMeta.c
   LIB_COMMON_SRC+=lib_common/BufferSeiMeta.c
+
 
 
 

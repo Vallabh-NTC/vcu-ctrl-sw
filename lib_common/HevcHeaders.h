@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,6 +7,8 @@
 
 static int32_t const AL_HEVC_MIN_DBF_PARAM = -6;
 static int32_t const AL_HEVC_MAX_DBF_PARAM = 6;
+
+#define MAX_NUM_OUTPUT_LAYER 1024
 
 /*****************************************************************************
    \brief Mimics structure described in spec sec. 7.3.2.1.2
@@ -132,6 +134,9 @@ typedef struct AL_THevcVps
 *****************************************************************************/
 typedef struct AL_THevcSps
 {
+  uint8_t nal_unit_type;
+  uint8_t nuh_layer_id;
+  uint8_t nuh_temporal_layer_id_plus_1;
   uint8_t sps_video_parameter_set_id;
   uint8_t sps_max_sub_layers_minus1;
   uint8_t sps_ext_or_max_sub_layers_minus1;
@@ -204,7 +209,7 @@ typedef struct AL_THevcSps
   uint8_t sps_3d_extension_flag;
   uint8_t sps_scc_extension_flag;
   uint8_t sps_extension_4bits;
-  uint8_t sps_extension_7bits;
+  uint8_t sps_extension_6bits;
   uint8_t inter_view_mv_vert_constraint_flag;
   uint8_t transform_skip_rotation_enabled_flag;
   uint8_t transform_skip_context_enabled_flag;
@@ -262,6 +267,9 @@ static int32_t const AL_HEVC_MAX_REF_IDX = 14;
 *****************************************************************************/
 typedef struct AL_THevcPps
 {
+  uint8_t nal_unit_type;
+  uint8_t nuh_layer_id;
+  uint8_t nuh_temporal_layer_id_plus_1;
   uint8_t pps_pic_parameter_set_id;
   uint8_t pps_seq_parameter_set_id;
   uint8_t dependent_slice_segments_enabled_flag;
@@ -321,7 +329,7 @@ typedef struct AL_THevcPps
   uint8_t pps_3d_extension_flag;
   uint8_t pps_scc_extension_flag;
   uint8_t pps_extension_4bits;
-  uint8_t pps_extension_7bits;
+  uint8_t pps_extension_6bits;
   uint8_t log2_transform_skip_block_size_minus2;
   uint8_t cross_component_prediction_enabled_flag;
   uint8_t chroma_qp_offset_list_enabled_flag;
@@ -336,8 +344,27 @@ typedef struct AL_THevcPps
   uint8_t pps_infer_scaling_list_flag;
   uint8_t pps_scaling_list_ref_layer_id;
   uint32_t num_ref_loc_offsets;
-  uint8_t colour_mapping_enabled_flag;
+  uint8_t ref_loc_offset_layer_id[MAX_NUM_LAYER]; // spec says 63 (XXX i think)
 
+  bool scaled_ref_layer_offset_present_flag[MAX_NUM_LAYER];
+  int32_t scaled_ref_layer_left_offset[MAX_NUM_LAYER];
+  int32_t scaled_ref_layer_top_offset[MAX_NUM_LAYER];
+  int32_t scaled_ref_layer_right_offset[MAX_NUM_LAYER];
+  int32_t scaled_ref_layer_bottom_offset[MAX_NUM_LAYER];
+
+  bool ref_region_offset_present_flag[MAX_NUM_LAYER];
+  int32_t ref_region_left_offset[MAX_NUM_LAYER];
+  int32_t ref_region_top_offset[MAX_NUM_LAYER];
+  int32_t ref_region_right_offset[MAX_NUM_LAYER];
+  int32_t ref_region_bottom_offset[MAX_NUM_LAYER];
+
+  bool resample_phase_set_present_flag[MAX_NUM_LAYER];
+  uint32_t phase_hor_luma[MAX_NUM_LAYER];
+  uint32_t phase_ver_luma[MAX_NUM_LAYER];
+  uint32_t phase_hor_chroma_plus8[MAX_NUM_LAYER];
+  uint32_t phase_ver_chroma_plus8[MAX_NUM_LAYER];
+
+  uint8_t colour_mapping_enabled_flag;
   AL_THevcSps* pSPS;
 
   /* concealment flag */
@@ -383,6 +410,8 @@ typedef struct AL_THevcSliceHdr
   uint8_t num_ref_idx_l1_active_minus1;
 
   uint8_t inter_layer_pred_enabled_flag;
+  uint8_t num_inter_layer_ref_pics_minus1;
+  uint8_t interlayer_pred_layer_idc[MAX_NUM_LAYER];
 
   AL_TRefPicModif ref_pic_modif;
 
@@ -426,7 +455,9 @@ typedef struct AL_THevcSliceHdr
   uint8_t NumPocStFoll;
   uint8_t NumPocLtCurr;
   uint8_t NumPocLtFoll;
-  uint8_t NumPocTotalCurr;
+  uint8_t NumPicTotalCurr;
+  int32_t iCurrPOC;
+  bool RefListBuilt;
 
   int32_t slice_header_length;
   /* Keep this at last position of structure since it allows to memset

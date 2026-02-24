@@ -1,21 +1,28 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "SeiParser.h"
-#include "lib_common/SeiInternal.h"
 #include "lib_common/SyntaxConversion.h"
 
 #include "lib_common/HDR.h"
 
 /*****************************************************************************/
-void sei_get_uuid_iso_iec_11578(AL_TRbspParser* pRP, uint8_t* uuid)
+void AL_SeiParser_Init(AL_TSeiParserCtx* pCtx, AL_TAup* pOutputAup, AL_TSeiMetaData* pOutputMeta, AL_CB_ParsedSei* pSeiParsedCallback)
 {
-  for(int32_t i = 0; i < 16; i++)
-    uuid[i] = getbyte(pRP);
+  pCtx->pOutputAup = pOutputAup;
+  pCtx->pOutputMeta = pOutputMeta;
+  pCtx->pSeiParsedCallback = pSeiParsedCallback;
+  pCtx->pfnCustomSeiParsing = NULL;
 }
 
 /*****************************************************************************/
-static bool SeiRecoveryPoint(AL_TRbspParser* pRP, AL_TRecoveryPoint* pRecoveryPoint)
+void AL_SeiParser_AddCustomSeiParsing(AL_TSeiParserCtx* pCtx, AL_PFN_ParseOneSei pfnCustomSeiParsing)
+{
+  pCtx->pfnCustomSeiParsing = pfnCustomSeiParsing;
+}
+
+/*****************************************************************************/
+static AL_ESeiParseResult SeiRecoveryPoint(AL_TRbspParser* pRP, AL_TRecoveryPoint* pRecoveryPoint)
 {
   Rtos_Memset(pRecoveryPoint, 0, sizeof(*pRecoveryPoint));
 
@@ -24,8 +31,7 @@ static bool SeiRecoveryPoint(AL_TRbspParser* pRP, AL_TRecoveryPoint* pRecoveryPo
   pRecoveryPoint->broken_link = u(pRP, 1);
 
   /*changing_slice_group_idc = */ u(pRP, 2);
-
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
@@ -36,7 +42,7 @@ typedef enum
 }AL_EUserDataRegisterSEICountryCode;
 
 /*****************************************************************************/
-static bool SeiMasteringDisplayColourVolume(AL_TMasteringDisplayColourVolume* pMDCV, AL_TRbspParser* pRP)
+static AL_ESeiParseResult SeiMasteringDisplayColourVolume(AL_TMasteringDisplayColourVolume* pMDCV, AL_TRbspParser* pRP)
 {
   Rtos_Memset(pMDCV, 0, sizeof(*pMDCV));
 
@@ -52,40 +58,37 @@ static bool SeiMasteringDisplayColourVolume(AL_TMasteringDisplayColourVolume* pM
   pMDCV->max_display_mastering_luminance = u(pRP, 32);
   pMDCV->min_display_mastering_luminance = u(pRP, 32);
 
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool SeiContentLightLevel(AL_TContentLightLevel* pCLL, AL_TRbspParser* pRP)
+static AL_ESeiParseResult SeiContentLightLevel(AL_TContentLightLevel* pCLL, AL_TRbspParser* pRP)
 {
   Rtos_Memset(pCLL, 0, sizeof(*pCLL));
-
   pCLL->max_content_light_level = u(pRP, 16);
   pCLL->max_pic_average_light_level = u(pRP, 16);
-
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool SeiAlternativeTransferCharacteristics(AL_TAlternativeTransferCharacteristics* pATC, AL_TRbspParser* pRP)
+static AL_ESeiParseResult SeiAlternativeTransferCharacteristics(AL_TAlternativeTransferCharacteristics* pATC, AL_TRbspParser* pRP)
 {
   pATC->preferred_transfer_characteristics = AL_VUIValueToTransferCharacteristics(u(pRP, 8));
-
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* pRP)
+static AL_ESeiParseResult SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* pRP)
 {
   if(ue(pRP) != 1)
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   bool bImageCharacteristicsParsed = false;
 
   pST2094_10->application_version = ue(pRP);
 
   if(pST2094_10->application_version != 0)
-    return false;
+    return AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
 
   bool metadata_refresh_flag = u(pRP, 1);
 
@@ -99,7 +102,7 @@ static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* 
     if(num_ext_block > 0)
     {
       if(!simple_byte_alignment(pRP, 0))
-        return false;
+        return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
       for(int32_t iBlock = 0; iBlock < num_ext_block; iBlock++)
       {
@@ -113,7 +116,7 @@ static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* 
         case 1:
         {
           if(bImageCharacteristicsParsed || ext_block_length < 5)
-            return false;
+            return AL_SEI_PARSE_RESULT_PARSING_ERROR;
           pST2094_10->image_characteristics.min_pq = u(pRP, 12);
           pST2094_10->image_characteristics.max_pq = u(pRP, 12);
           pST2094_10->image_characteristics.avg_pq = u(pRP, 12);
@@ -124,7 +127,7 @@ static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* 
         case 2:
         {
           if(pST2094_10->num_manual_adjustments > 15 || ext_block_length < 11)
-            return false;
+            return AL_SEI_PARSE_RESULT_PARSING_ERROR;
           pST2094_10->manual_adjustments[pST2094_10->num_manual_adjustments].target_max_pq = u(pRP, 12);
           pST2094_10->manual_adjustments[pST2094_10->num_manual_adjustments].trim_slope = u(pRP, 12);
           pST2094_10->manual_adjustments[pST2094_10->num_manual_adjustments].trim_offset = u(pRP, 12);
@@ -139,7 +142,7 @@ static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* 
         case 5:
         {
           if(pST2094_10->processing_window_flag || ext_block_length < 7)
-            return false;
+            return AL_SEI_PARSE_RESULT_PARSING_ERROR;
           pST2094_10->processing_window.active_area_left_offset = u(pRP, 13);
           pST2094_10->processing_window.active_area_right_offset = u(pRP, 13);
           pST2094_10->processing_window.active_area_top_offset = u(pRP, 13);
@@ -158,12 +161,12 @@ static bool SeiSt2094_10(AL_TDynamicMeta_ST2094_10* pST2094_10, AL_TRbspParser* 
   }
 
   if(!simple_byte_alignment(pRP, 0))
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   // Reserved 0xFF bits
   skip(pRP, 8);
 
-  return bImageCharacteristicsParsed;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
@@ -183,15 +186,15 @@ static void SeiSt2094_40_peakluminance(AL_TDisplayPeakLuminance_ST2094_40* pPeak
 }
 
 /*****************************************************************************/
-bool SeiSt2094_40(AL_TDynamicMeta_ST2094_40* pST2094_40, AL_TRbspParser* pRP)
+static AL_ESeiParseResult SeiSt2094_40(AL_TDynamicMeta_ST2094_40* pST2094_40, AL_TRbspParser* pRP)
 {
   if(u(pRP, 8) != 4)
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   pST2094_40->application_version = u(pRP, 8);
 
   if(pST2094_40->application_version != 0)
-    return false;
+    return AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
 
   pST2094_40->num_windows = u(pRP, 2);
 
@@ -258,125 +261,191 @@ bool SeiSt2094_40(AL_TDynamicMeta_ST2094_40* pST2094_40, AL_TRbspParser* pRP)
       pWinTransfo->color_saturation_weight = u(pRP, 6);
   }
 
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static AL_EUserDataRegisterSEIType SeiUserDataRegistered(AL_TRbspParser* pRP, uint32_t payload_size)
+static bool ReadSeiUserDataRegisteredType(AL_TRbspParser* pRP, uint32_t uPayloadSize, AL_EUserDataRegisterSEIType* pSeiType)
 {
-#define MIN_SEI_USER_DATA_SIZE 3
+#define MIN_SEI_USER_DATA_REGISTERED_SIZE 3
 
-  if(payload_size < MIN_SEI_USER_DATA_SIZE)
-    return AL_UDR_SEI_UNKNOWN;
+  *pSeiType = AL_UDR_SEI_UNKNOWN;
+
+  if(uPayloadSize < MIN_SEI_USER_DATA_REGISTERED_SIZE)
+    return false;
 
   uint8_t itu_t_t35_country_code = u(pRP, 8);
   uint16_t itu_t_t35_terminal_provider_code = u(pRP, 16);
-
-  AL_EUserDataRegisterSEIType eSeiType = AL_UDR_SEI_UNKNOWN;
 
   if(itu_t_t35_country_code == AL_UDR_SEI_COUNTRY_CODE_USA)
   {
     if(itu_t_t35_terminal_provider_code == 0x3B)
     {
       if(u(pRP, 32) == 0x00 && u(pRP, 8) == 0x09)
-        eSeiType = AL_UDR_SEI_ST2094_10;
+        *pSeiType = AL_UDR_SEI_ST2094_10;
     }
     else if(itu_t_t35_terminal_provider_code == 0x3C)
     {
       if(u(pRP, 16) == 0x01)
-        eSeiType = AL_UDR_SEI_ST2094_40;
+        *pSeiType = AL_UDR_SEI_ST2094_40;
     }
   }
 
-  return eSeiType;
+  return true;
 }
 
 /*****************************************************************************/
-static bool ParseCommonSei(SeiParserParam* pParam, AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, uint32_t uPayloadSize, bool* bCanSendToUser)
+static AL_ESeiParseResult SeiUserDataRegistered(AL_TRbspParser* pRP, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser)
 {
-  bool bParsingOk = true;
-  *bCanSendToUser = true;
+  (void)pOutputAup;
+
+  AL_EUserDataRegisterSEIType eSeiType;
+
+  if(!ReadSeiUserDataRegisteredType(pRP, uPayloadSize, &eSeiType))
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
+
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  *pCanSendToUser = true;
+  switch(eSeiType)
+  {
+  case AL_UDR_SEI_ST2094_10:
+  {
+    eParseResult = SeiSt2094_10(&pOutputAup->tParsedHDRSEIs.tST2094_10, pRP);
+    pOutputAup->tParsedHDRSEIs.bHasST2094_10 = eParseResult == AL_SEI_PARSE_RESULT_PARSED;
+    *pCanSendToUser = false;
+    break;
+  }
+  case AL_UDR_SEI_ST2094_40:
+  {
+    eParseResult = SeiSt2094_40(&pOutputAup->tParsedHDRSEIs.tST2094_40, pRP);
+    pOutputAup->tParsedHDRSEIs.bHasST2094_40 = eParseResult == AL_SEI_PARSE_RESULT_PARSED;
+    *pCanSendToUser = false;
+    break;
+  }
+  default:
+  {
+    break;
+  }
+  }
+
+  return eParseResult;
+}
+
+/*****************************************************************************/
+static bool ReadSeiUserDataUnregisteredType(AL_TRbspParser* pRP, uint32_t uPayloadSize, AL_EUserDataUnregisterSEIType* pSeiType)
+{
+#define MIN_SEI_USER_DATA_UNREGISTERED_SIZE UUID_SIZE
+
+  *pSeiType = AL_UDU_SEI_UNKNOWN;
+
+  if(uPayloadSize < MIN_SEI_USER_DATA_UNREGISTERED_SIZE)
+    return false;
+
+  uint8_t uuid[UUID_SIZE];
+
+  for(uint8_t uByte = 0; uByte < UUID_SIZE; uByte++)
+    uuid[uByte] = u(pRP, 8);
+
+  if(Rtos_Memcmp(uuid, ALLEGRO_NUM_SLICES_SEI_UUID, UUID_SIZE) == 0)
+    *pSeiType = AL_UDU_SEI_ALLEGRO_NUM_SLICES;
+
+  return true;
+}
+
+/*****************************************************************************/
+static AL_ESeiParseResult SeiUserDataUnregistered(AL_TRbspParser* pRP, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser)
+{
+  (void)pOutputAup;
+
+  AL_EUserDataUnregisterSEIType eSeiType;
+
+  if(!ReadSeiUserDataUnregisteredType(pRP, uPayloadSize, &eSeiType))
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
+
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  *pCanSendToUser = true;
+  switch(eSeiType)
+  {
+  case AL_UDU_SEI_ALLEGRO_NUM_SLICES:
+  {
+    /*
+      The SeiParser is called after we detect a full frame (in frame-latency mode), ie access unit,
+      to parse all SEIs we associated to the frame. Yet, this SEI is specific, as it is used to
+      help the decoder to detect we have a full frame before we receive the first NAL of the next
+      frame (goal is to reduce latency). Thus, it must be parsed before standard SEIs, and we just
+      skip this SEI here. Also, dont sent to user, its internal usage only.
+    */
+    *pCanSendToUser = false;
+    break;
+  }
+  default:
+  {
+    break;
+  }
+  }
+
+  return eParseResult;
+}
+
+/*****************************************************************************/
+static AL_ESeiParseResult ParseCommonSei(AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser)
+{
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  *pCanSendToUser = true;
   switch(ePayloadType)
   {
-  case SEI_PTYPE_RECOVERY_POINT: // picture_timing parsing
+  case SEI_PTYPE_RECOVERY_POINT:
   {
     AL_TRecoveryPoint tRecoveryPoint;
-    bParsingOk = SeiRecoveryPoint(pRP, &tRecoveryPoint);
-    pParam->pIAup->iRecoveryCnt = tRecoveryPoint.recovery_cnt + 1; // +1 for non-zero value when AL_SEI_RP is present
+    eParseResult = SeiRecoveryPoint(pRP, &tRecoveryPoint);
+    pOutputAup->iRecoveryCnt = tRecoveryPoint.recovery_cnt + 1; // +1 for non-zero value when AL_SEI_RP is present
     break;
   }
   case SEI_PTYPE_MASTERING_DISPLAY_COLOUR_VOLUME:
   {
-    bParsingOk = SeiMasteringDisplayColourVolume(&pParam->pIAup->tParsedHDRSEIs.tMDCV, pRP);
-    pParam->pIAup->tParsedHDRSEIs.bHasMDCV = true;
-    *bCanSendToUser = false;
+    eParseResult = SeiMasteringDisplayColourVolume(&pOutputAup->tParsedHDRSEIs.tMDCV, pRP);
+    pOutputAup->tParsedHDRSEIs.bHasMDCV = true;
+    *pCanSendToUser = false;
     break;
   }
   case SEI_PTYPE_CONTENT_LIGHT_LEVEL:
   {
-    bParsingOk = SeiContentLightLevel(&pParam->pIAup->tParsedHDRSEIs.tCLL, pRP);
-    pParam->pIAup->tParsedHDRSEIs.bHasCLL = true;
-    *bCanSendToUser = false;
+    eParseResult = SeiContentLightLevel(&pOutputAup->tParsedHDRSEIs.tCLL, pRP);
+    pOutputAup->tParsedHDRSEIs.bHasCLL = true;
+    *pCanSendToUser = false;
     break;
   }
   case SEI_PTYPE_ALTERNATIVE_TRANSFER_CHARACTERISTICS:
   {
-    bParsingOk = SeiAlternativeTransferCharacteristics(&pParam->pIAup->tParsedHDRSEIs.tATC, pRP);
-    pParam->pIAup->tParsedHDRSEIs.bHasATC = true;
-    *bCanSendToUser = false;
+    eParseResult = SeiAlternativeTransferCharacteristics(&pOutputAup->tParsedHDRSEIs.tATC, pRP);
+    pOutputAup->tParsedHDRSEIs.bHasATC = true;
+    *pCanSendToUser = false;
     break;
   }
   case SEI_PTYPE_USER_DATA_REGISTERED:
   {
-    AL_EUserDataRegisterSEIType eSEIType;
-    bParsingOk = ((eSEIType = SeiUserDataRegistered(pRP, uPayloadSize)) != AL_UDR_SEI_UNKNOWN);
-
-    if(!bParsingOk)
-      break;
-    switch(eSEIType)
-    {
-    case AL_UDR_SEI_ST2094_10:
-    {
-      bParsingOk = SeiSt2094_10(&pParam->pIAup->tParsedHDRSEIs.tST2094_10, pRP);
-      pParam->pIAup->tParsedHDRSEIs.bHasST2094_10 = true;
-      *bCanSendToUser = false;
-      break;
-    }
-    case AL_UDR_SEI_ST2094_40:
-    {
-      bParsingOk = SeiSt2094_40(&pParam->pIAup->tParsedHDRSEIs.tST2094_40, pRP);
-      pParam->pIAup->tParsedHDRSEIs.bHasST2094_40 = true;
-      *bCanSendToUser = false;
-      break;
-    }
-    default:
-    {
-      Rtos_Assert(false);
-      break;
-    }
-    }
-
-    *bCanSendToUser = false;
+    eParseResult = SeiUserDataRegistered(pRP, uPayloadSize, pOutputAup, pCanSendToUser);
     break;
   }
-  default: // Payload not supported
+  case SEI_PTYPE_USER_DATA_UNREGISTERED:
   {
-    skip(pRP, uPayloadSize << 3);
+    eParseResult = SeiUserDataUnregistered(pRP, uPayloadSize, pOutputAup, pCanSendToUser);
+    break;
+  }
+  default:
+  {
     break;
   }
   }
 
-  return bParsingOk;
+  return eParseResult;
 }
 
 /*****************************************************************************/
-bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
+static bool GetPayloadType(AL_TRbspParser* pRP, AL_ESeiPayloadType* pPayloadType)
 {
   uint32_t uPayloadType = 0;
-  uint32_t uPayloadSize = 0;
 
-  // Get payload type
-  // ----------------
   if(!byte_aligned(pRP))
     return false;
 
@@ -389,11 +458,17 @@ bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
   }
 
   uPayloadType += byte;
-  AL_ESeiPayloadType ePayloadType = (AL_ESeiPayloadType)uPayloadType;
+  *pPayloadType = (AL_ESeiPayloadType)uPayloadType;
 
-  // Get payload size
-  // ----------------
-  byte = getbyte(pRP);
+  return true;
+}
+
+/*****************************************************************************/
+static uint32_t GetPayloadSize(AL_TRbspParser* pRP)
+{
+  uint32_t uPayloadSize = 0;
+
+  uint8_t byte = getbyte(pRP);
 
   while(byte == 0xff)
   {
@@ -403,38 +478,45 @@ bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
 
   uPayloadSize += byte;
 
-  // Parse the payload
+  return uPayloadSize;
+}
+
+/*****************************************************************************/
+bool AL_SeiParser_Parse(AL_TSeiParserCtx* pCtx, AL_TRbspParser* pRP, bool bIsPrefix)
+{
+  AL_ESeiPayloadType ePayloadType;
+
+  // Parse payload header
+  // -----------------
+  if(!GetPayloadType(pRP, &ePayloadType))
+    return false;
+
+  uint32_t uPayloadSize = GetPayloadSize(pRP);
+
+  // Parse payload content
   // -----------------
   uint32_t uOffsetBefore = offset(pRP);
-  bool bCanSendToUser = true;
-  bool bParsed = false;
-  bool bParsingOk = true;
   uint8_t* pPayloadData = get_raw_data(pRP);
 
-  // Call codec specific SEI parsing
-  if(pCB)
-    bParsingOk = pCB->func(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser, &bParsed);
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  bool bCanSendToUser = true;
 
-  // If the codec specific hasn't parsed, try the common SEI payload
-  if(!bParsed)
-    bParsingOk = ParseCommonSei(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser);
+  if(pCtx->pfnCustomSeiParsing)
+    eParseResult = pCtx->pfnCustomSeiParsing(pRP, ePayloadType, uPayloadSize, pCtx->pOutputAup, &bCanSendToUser);
+
+  if(eParseResult == AL_SEI_PARSE_RESULT_UNKNOWN_SEI)
+    eParseResult = ParseCommonSei(pRP, ePayloadType, uPayloadSize, pCtx->pOutputAup, &bCanSendToUser);
+
+  uint32_t const uOffsetAfter = offset(pRP);
+  uint32_t const uReadSize = uOffsetAfter - uOffsetBefore;
+  int32_t iRemainingPayload = (uPayloadSize << 3) - (int32_t)(uReadSize);
 
   // Try to catch up if the parsing was bad
-  if(!bParsingOk)
-  {
-    uint32_t uReadSize = offset(pRP) - uOffsetBefore;
-
-    if(uReadSize > uPayloadSize << 3)
-      return false;
-
-    skip(pRP, (uPayloadSize << 3) - uReadSize);
-  }
+  if((eParseResult == AL_SEI_PARSE_RESULT_PARSING_ERROR) && (iRemainingPayload < 0))
+    return false;
 
   // Skip remaining payload
   // ----------------------
-  uint32_t uOffsetAfter = offset(pRP);
-  int32_t iRemainingPayload = (uPayloadSize << 3) - (int32_t)(uOffsetAfter - uOffsetBefore);
-
   if(iRemainingPayload > 0)
     skip(pRP, iRemainingPayload);
 
@@ -443,14 +525,14 @@ bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
 
   // Attach sei to the SeiMetaData
   // -----------------------------
-  if(bCanSendToUser && pCB->pParam->pMeta)
-    if(!AL_SeiMetaData_AddPayload(pCB->pParam->pMeta, (AL_TSeiMessage) {pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize }))
+  if(bCanSendToUser && pCtx->pOutputMeta)
+    if(!AL_SeiMetaData_AddPayload(pCtx->pOutputMeta, (AL_TSeiMessage) {bIsPrefix, ePayloadType, pPayloadData, uPayloadSize }))
       return false;
 
   // Send sei to the user
   // --------------------
-  if(bCanSendToUser && pCB->pParam->cb->func)
-    pCB->pParam->cb->func(pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize, pCB->pParam->cb->userParam);
+  if(bCanSendToUser && pCtx->pSeiParsedCallback)
+    pCtx->pSeiParsedCallback->func(bIsPrefix, ePayloadType, pPayloadData, uPayloadSize, pCtx->pSeiParsedCallback->userParam);
 
   return true;
 }

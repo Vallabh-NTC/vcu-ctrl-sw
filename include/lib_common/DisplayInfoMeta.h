@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -53,6 +53,6 @@ void AL_DisplayInfoMetaData_Copy(AL_TDisplayInfoMetaData* pMetaSrc, AL_TDisplayI
    \return Returns NULL in case of failure. Returns a pointer to the metadata
    copy in case of success.
 *****************************************************************************/
-AL_TDisplayInfoMetaData* AL_DisplayInfoMetaData_Clone(AL_TDisplayInfoMetaData* pMeta);
+AL_TDisplayInfoMetaData* AL_DisplayInfoMetaData_Clone(AL_TDisplayInfoMetaData const* pMeta);
 
 /*!@}*/

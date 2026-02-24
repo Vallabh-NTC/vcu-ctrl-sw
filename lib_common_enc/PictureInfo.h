@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
+#include "lib_buf_mngt/FrmBuf.h"
 #include "lib_common_enc/EncChanParam.h"
 #include "lib_common_enc/EncPicInfo.h"
 #include "lib_common/Utils.h"
@@ -47,7 +48,7 @@ typedef struct
 *****************************************************************************/
 typedef struct AL_TPictureInfo
 {
-  uint32_t uSrcOrder; /*!< Source picture number in display order */
+  AL_64U uSrcOrder; /*!< Source picture number in display order */
   uint32_t uFlags; /*!< Bitfield containing information about this picture (For example AL_PICT_INFO_IS_REF or AL_PICT_INFO_IS_IDR) \see include/lib_common_enc/PictureInfo.h for the full list */
   int32_t iPOC; /*!< Picture Order Count */
   int32_t iFrameNum; /*!< H264 frame_num field */
@@ -68,12 +69,12 @@ typedef struct AL_TPictureInfo
     Hierarchical-Level. In some cases though, we cannot follow the Hierarchical-Level because of ITU
     specification constraints (ex.: interlaced).
   */
-  uint8_t uTempId;
+  uint8_t uTemporalId;
 
   bool bForceLT[2]; /*!< Specifies if a following reference picture need to be marked as long-term */
 
   int32_t iDpbOutputDelay;
-  uint8_t uRefPicSetIdx;
+  int8_t iRefPicSetIdx;
   int8_t iGopMngrQpOffset;
   int32_t iRecoveryCnt;
   int32_t iRefAQp;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferHandleMeta.h"
@@ -20,7 +20,7 @@ static bool destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_THandleMetaData* AL_HandleMetaData_Clone(AL_THandleMetaData* pMeta)
+AL_THandleMetaData* AL_HandleMetaData_Clone(AL_THandleMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -39,9 +39,9 @@ AL_THandleMetaData* AL_HandleMetaData_Clone(AL_THandleMetaData* pMeta)
   return pHandleMeta;
 }
 
-static AL_TMetaData* clone(AL_TMetaData* pMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_HandleMetaData_Clone((AL_THandleMetaData*)pMeta);
+  return (AL_TMetaData*)AL_HandleMetaData_Clone((AL_THandleMetaData const*)pMeta);
 }
 
 static AL_TInternalHandleMetaData* allocInternal(int32_t iMaxHandles, int32_t iHandleSize)

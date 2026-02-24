@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -8,9 +8,9 @@
  *****************************************************************************/
 #pragma once
 
-typedef struct AL_IDecScheduler AL_IDecScheduler;
+#include "lib_common/I_Communication.h"
 
-#include "lib_common/HardwareDriver.h"
+typedef struct AL_IDecScheduler AL_IDecScheduler;
 
 /*****************************************************************************
     \brief Interfaces with a scheduler that runs on different process.
@@ -19,6 +19,6 @@ typedef struct AL_IDecScheduler AL_IDecScheduler;
    \param[in] driver Select which driver you want to use. This will dictate how the communication with the scheduler will be handled.
    \param[in] deviceFile The file that represents the device and that will be opened by the driver to communicate with the scheduler.
 *****************************************************************************/
-AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_TDriver* driver, char const* deviceFile);
+AL_IDecScheduler* AL_DecSchedulerMcu_Create(AL_ICommunication* driver, char const* deviceFile);
 
 /*!@}*/

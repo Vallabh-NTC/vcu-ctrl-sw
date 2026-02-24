@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/PicFormat.h"
@@ -90,12 +90,11 @@ int32_t AL_DecGetAllocSize_Frame_UV(AL_EFbStorageMode eFbStorage, AL_TDimension 
 }
 
 /****************************************************************************/
-uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_TPicFormat const* pPicFormat, uint8_t uMaxRef, uint8_t uAddrSizeInBytes)
+uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaMode eChromaMode, uint8_t uMaxRef, uint8_t uAddrSizeInBytes)
 {
   uint8_t uOffsetToNextSet = 1 << ceil_log2(uMaxRef);
 
-  AL_EPlaneId usedPlanes[AL_MAX_BUFFER_PLANES];
-  const int32_t iNbPixPlanes = Max(2, AL_Plane_GetBufferPixelPlanes(*pPicFormat, usedPlanes));
+  const int32_t iNbPixPlanes = eChromaMode == AL_CHROMA_4_4_4 ? 3 : 2;
   TRefListOffsets tOffsets;
 
   uint32_t uOffset = uAddrSizeInBytes * uOffsetToNextSet * iNbPixPlanes; // size of RefList Buff Addrs
@@ -174,3 +173,49 @@ AL_TMetaData* AL_CreateRecBufMetaData(AL_TDimension tDim, int32_t iMinPitch, TFo
   return (AL_TMetaData*)pSrcMeta;
 }
 
+/*****************************************************************************/
+static AL_TBuffer* CreateBuffer(AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCountCallback, void* pUserParam, AL_TMetaData* pMeta, size_t zSize, char const* pDebugName)
+{
+  AL_TBuffer* pBuf = AL_Buffer_Create_And_AllocateNamed(pAllocator, zSize, pRefCountCallback, pDebugName);
+
+  if(!pBuf)
+    return NULL;
+
+  if(!AL_Buffer_AddMetaData(pBuf, pMeta))
+  {
+    AL_Buffer_Destroy(pBuf);
+    return NULL;
+  }
+
+  AL_Buffer_SetUserData(pBuf, pUserParam);
+
+  return pBuf;
+}
+
+/*****************************************************************************/
+static uint32_t GetBufferSize(AL_TDecFrameBufferParams const* pFrameBufferParams, uint32_t iMinPitch)
+{
+  uint32_t iSizeYuv = AL_DecGetAllocSize_Frame(pFrameBufferParams->tDim, iMinPitch, pFrameBufferParams->tPicFormat);
+  return iSizeYuv;
+}
+
+/*****************************************************************************/
+AL_TBuffer* AL_DecCreateFrameBuffer(AL_TDecFrameBufferParams const* pFrameBufferParams, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCountCallback, void* pUserParam)
+{
+  AL_TDimension tDim = pFrameBufferParams->tDim;
+  TFourCC tFourCC = AL_GetFourCC(pFrameBufferParams->tPicFormat);
+  int32_t iMinPitch = AL_DecGetLumaPixPlanePitch(tDim.iWidth, &pFrameBufferParams->tPicFormat);
+  int32_t iSizeYuv = GetBufferSize(pFrameBufferParams, iMinPitch);
+
+  AL_TMetaData* pMeta = AL_CreateRecBufMetaData(tDim, iMinPitch, tFourCC);
+
+  if(!pMeta)
+    return NULL;
+
+  AL_TBuffer* pBuf = CreateBuffer(pAllocator, pRefCountCallback, pUserParam, pMeta, iSizeYuv, "yuv-itl");
+
+  if(pBuf == NULL)
+    AL_MetaData_Destroy(pMeta);
+
+  return pBuf;
+}

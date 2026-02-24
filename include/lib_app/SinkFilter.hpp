@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,6 +12,7 @@ extern "C" {
 
 struct SinkFilter final : IFrameSink
 {
+
   SinkFilter(AL_EOutputType eOutputID, std::unique_ptr<IFrameSink>& pSink) :
     m_eOutputID(eOutputID), m_pSink(std::move(pSink))
   {
@@ -26,9 +27,8 @@ struct SinkFilter final : IFrameSink
     if(pMeta)
       eOutputID = pMeta->eOutputID;
 
-    if(eOutputID != m_eOutputID)
+    if(m_eOutputID != AL_OUTPUT_ANY && eOutputID != m_eOutputID)
       return;
-
     m_pSink->ProcessFrame(pBuf);
   }
 

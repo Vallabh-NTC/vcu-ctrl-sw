@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -13,6 +13,7 @@
 #include "DecoderCommon.h"
 #include "lib_common_dec/InternalError.h"
 #include "lib_common_dec/DecInfo.h"
+#include "lib_common/Index.h"
 #include "lib_rtos/types.h"
 
 typedef struct
@@ -21,6 +22,7 @@ typedef struct
 }AL_TDecoder;
 
 AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB);
+AL_ERR AL_CreateSubLayerDecoder(AL_TDecCtx* pBaseLayerCtx, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB);
 
 /*****************************************************************************
    \brief This function performs the decoding of one unit
@@ -36,9 +38,9 @@ UNIT_ERROR AL_Default_Decoder_DecodeOneUnit(AL_TDecoder* pAbsDec, AL_TCircBuffer
    \brief This function signal that a buffer as been fully parsed
    \param[in] pUserParam filled with the decoder context
    \param[in] tFrameID frame id for the picture manager
-   \param[in] iParsingID stream input id in the split input case.
+   \param[in] tParsingID stream input id in the split input case.
 *****************************************************************************/
-void AL_Default_Decoder_EndParsing(void* pUserParam, AL_TIndex tFrameID, int32_t iParsingID);
+void AL_Default_Decoder_EndParsing(void* pUserParam, AL_TIndex tFrameID, AL_TIndex tParsingID);
 
 /*****************************************************************************
    \brief This function performs DPB operations after frames decoding
@@ -80,7 +82,7 @@ AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx const* pCt
 *****************************************************************************/
 bool AL_Default_Decoder_HasOngoingFrame(AL_TDecCtx* pCtx);
 
-bool AL_Default_Decoder_CreateChannel(AL_TDecCtx* pCtx, void (* pfnEndParsing)(void*, uint8_t, int32_t), void (* pfnEndDecoding)(void*, AL_TDecPicStatus const*));
+bool AL_Default_Decoder_CreateChannel(AL_TDecCtx* pCtx, void (* pfnEndParsing)(void*, AL_TIndex, AL_TIndex), void (* pfnEndDecoding)(void*, AL_TDecPicStatus const*));
 
 void AL_Default_Decoder_Destroy(AL_TDecoder* pAbsDec);
 void AL_Default_Decoder_SetParam(AL_TDecoder* pAbsDec, const char* sPrefix, int32_t iFrmID, int32_t iNumFrm, bool bShouldPrintFrameDelimiter);
@@ -89,7 +91,7 @@ bool AL_Default_Decoder_PushBuffer(AL_TDecoder* pAbsDec, AL_TBuffer* pBuf, size_
 void AL_Default_Decoder_Flush(AL_TDecoder* pAbsDec);
 void AL_Default_Decoder_ForceStop(AL_TDecoder* pAbsDec);
 bool AL_Default_Decoder_ConfigureOutputSettings(AL_TDecoder* pAbsDec, AL_TDecOutputSettings const* pDecOutputSettings);
-bool AL_Default_Decoder_PutDecPict(AL_TDecoder* pAbsDec, AL_TBuffer* pDecPict);
+bool AL_Default_Decoder_PutDecPict(AL_TDecoder* pAbsDec, uint8_t uLayerID, AL_TBuffer* pDecPict);
 int32_t AL_Default_Decoder_GetMaxBD(AL_TDecoder* pAbsDec);
 AL_ERR AL_Default_Decoder_GetLastError(AL_TDecoder* pAbsDec);
 AL_ERR AL_Default_Decoder_GetFrameError(AL_TDecoder* pAbsDec, AL_TBuffer const* pBuf);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "CommonPictMngr.h"
@@ -12,7 +12,7 @@ static void sSetAnnexBuffersAddresses(AL_ECodec eCodec, AL_TDecSliceParam const*
   (void)pSliceParam;
 
   TRefListOffsets tRefListOffsets;
-  AL_GetRefListOffsets(&tRefListOffsets, eCodec, pPicFormat, AL_MAX_REF, sizeof(AL_PADDR));
+  AL_GetRefListOffsets(&tRefListOffsets, eCodec, pPicFormat->eChromaMode, AL_MAX_REF, sizeof(AL_PADDR));
 
   AL_VADDR pListRefAddr = pPicBuffers->tListRef.tMD.pVirtualAddr;
   PhysAddr pColocMvList = (PhysAddr)(pListRefAddr + tRefListOffsets.uColocMVOffset);

@@ -1,17 +1,17 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "HEVC_Sections.h"
 #include "lib_common/Nuts.h"
 #include "lib_bitstream/HEVC_RbspEncod.h"
 
-static AL_TNalHeader GetNalHeaderHevc(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTempId)
+static AL_TNalHeader GetNalHeaderHevc(uint8_t uNUT, uint8_t uNalRefIdc, uint8_t uLayerId, uint8_t uTemporalId)
 {
   (void)uNalRefIdc;
   AL_TNalHeader nh;
   nh.size = 2;
   nh.bytes[0] = ((uLayerId & 0x20) >> 5) | ((uNUT & 0x3F) << 1);
-  nh.bytes[1] = (uTempId + 1) | ((uLayerId & 0x1F) << 3);
+  nh.bytes[1] = (uTemporalId + 1) | ((uLayerId & 0x1F) << 3);
   return nh;
 }
 

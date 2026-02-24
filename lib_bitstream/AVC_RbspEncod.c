@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "AVC_RbspEncod.h"
@@ -8,6 +8,7 @@
 #include "lib_common/SliceConsts.h"
 #include "lib_common/AvcHeaders.h"
 #include "lib_common/Nuts.h"
+#include "lib_common/SeiInternal.h"
 #include "lib_common/ScalingList.h"
 
 /******************************************************************************/
@@ -306,7 +307,7 @@ static void writeSeiBufferingPeriod(AL_TBitStreamLite* pBS, AL_TSps const* pISps
   AL_TAvcSps* pSps = (AL_TAvcSps*)pISps;
 
   // buffering_period
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 0);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_BUFFERING_PERIOD);
 
   AL_BitStreamLite_PutUE(pBS, pSps->seq_parameter_set_id);
 
@@ -339,7 +340,7 @@ static void writeSeiBufferingPeriod(AL_TBitStreamLite* pBS, AL_TSps const* pISps
 static void writeSeiRecoveryPoint(AL_TBitStreamLite* pBS, int32_t iRecoveryFrameCnt)
 {
   // recovery_point
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 6);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_RECOVERY_POINT);
 
   AL_BitStreamLite_PutUE(pBS, iRecoveryFrameCnt);
   AL_BitStreamLite_PutBit(pBS, 1); // exact_match_flag
@@ -362,7 +363,7 @@ static void writeSeiPictureTiming(AL_TBitStreamLite* pBS, AL_TSps const* pISps, 
   };
 
   // pic_timing
-  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, 1);
+  int32_t bookmark = AL_RbspEncoding_BeginSEI(pBS, SEI_PTYPE_PIC_TIMING);
 
   if(pSps->vui_param.hrd_param.nal_hrd_parameters_present_flag || pSps->vui_param.hrd_param.vcl_hrd_parameters_present_flag)
   {
@@ -431,7 +432,7 @@ static IRbspWriter writer =
   AL_RbspEncoding_WriteAlternativeTransferCharacteristics,
   AL_RbspEncoding_WriteST2094_10,
   AL_RbspEncoding_WriteST2094_40,
-  AL_RbspEncoding_WriteUserDataUnregistered,
+  AL_RbspEncoding_WriteAllegroNumSlicesSEI,
 };
 
 IRbspWriter* AL_GetAvcRbspWriter(void)

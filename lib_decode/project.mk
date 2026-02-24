@@ -17,8 +17,7 @@ LIB_DECODER_SRC:=\
 
 LIB_DECODER_OBJ:=$(LIB_DECODER_SRC:%=$(BIN)/%.o)
 
-$(LIB_DECODER_A): $(LIB_DECODER_OBJ) $(LIB_JPEG_XS_DECODE_A)
-
+$(LIB_DECODER_A): $(LIB_DECODER_OBJ)
 $(LIB_DECODER_DLL): $(LIB_DECODER_OBJ)
 
 liballegro_decode: liballegro_decode_dll liballegro_decode_a

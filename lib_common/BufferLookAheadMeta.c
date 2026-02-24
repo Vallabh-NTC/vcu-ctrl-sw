@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferLookAheadMeta.h"
@@ -11,7 +11,7 @@ static bool LookAheadMeta_Destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TLookAheadMetaData* AL_LookAheadMetaData_Clone(AL_TLookAheadMetaData* pMeta)
+AL_TLookAheadMetaData* AL_LookAheadMetaData_Clone(AL_TLookAheadMetaData const* pMeta)
 {
   if(!pMeta)
     return NULL;
@@ -24,9 +24,9 @@ AL_TLookAheadMetaData* AL_LookAheadMetaData_Clone(AL_TLookAheadMetaData* pMeta)
   return pLookAheadMeta;
 }
 
-static AL_TMetaData* clone(AL_TMetaData* pMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_LookAheadMetaData_Clone((AL_TLookAheadMetaData*)pMeta);
+  return (AL_TMetaData*)AL_LookAheadMetaData_Clone((AL_TLookAheadMetaData const*)pMeta);
 }
 
 AL_TLookAheadMetaData* AL_LookAheadMetaData_Create(void)
@@ -45,7 +45,7 @@ AL_TLookAheadMetaData* AL_LookAheadMetaData_Create(void)
   return pMeta;
 }
 
-void AL_LookAheadMetaData_Copy(AL_TLookAheadMetaData* pMetaSrc, AL_TLookAheadMetaData* pMetaDest)
+void AL_LookAheadMetaData_Copy(AL_TLookAheadMetaData const* pMetaSrc, AL_TLookAheadMetaData* pMetaDest)
 {
   if(!pMetaSrc || !pMetaDest)
     return;

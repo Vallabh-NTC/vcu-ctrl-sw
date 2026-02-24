@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -26,7 +26,7 @@ typedef struct AL_THevcScalingList
   AL_TMtx4x4 t4x4Cb;
   AL_TMtx4x4 t4x4Cr;
   AL_TMtxDC tDC;
-}AL_TScl[2];  // common for AVC and HEVC
+}AL_TScalingList[2];  // common for AVC and HEVC
 
 /*****************************************************************************
    \brief Diagonal scanning order

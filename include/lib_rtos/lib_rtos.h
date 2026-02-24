@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -30,12 +30,14 @@ typedef void* AL_THREAD;
 /*  Memory */
 /****************************************************************************/
 void* Rtos_Malloc(size_t zSize);
+void* Rtos_Calloc(size_t zNumber, size_t zSize);
 void Rtos_Free(void* pMem);
 
 void* Rtos_Memcpy(void* pDst, void const* pSrc, size_t zSize);
 void* Rtos_Memmove(void* pDst, void const* pSrc, size_t zSize);
 void* Rtos_Memset(void* pDst, int32_t iVal, size_t zSize);
 int32_t Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize);
+int32_t Rtos_Strncmp(char const* pStr1, char const* pStr2, size_t zSize);
 
 #define AL_LOG_CRITICAL 0
 #define AL_LOG_ERROR 1
@@ -90,6 +92,7 @@ bool Rtos_SetEvent(AL_EVENT Event);
 /****************************************************************************/
 /*  Threads */
 /****************************************************************************/
+AL_THREAD Rtos_CreateThreadWithPriority(void* (*pFunc)(void* pParam), void* pParam, uint32_t priority);
 AL_THREAD Rtos_CreateThread(void* (*pFunc)(void* pParam), void* pParam);
 void Rtos_SetCurrentThreadName(const char* pThreadName);
 bool Rtos_JoinThread(AL_THREAD Thread);
@@ -99,8 +102,8 @@ void Rtos_DeleteThread(AL_THREAD Thread);
 /*  Driver */
 /****************************************************************************/
 void* Rtos_DriverOpen(char const* name);
-void Rtos_DriverClose(void* drv);
-int32_t Rtos_DriverIoctl(void* drv, unsigned long int req, void* data);
+void Rtos_DriverClose(void* driver);
+int32_t Rtos_DriverIoctl(void* driver, unsigned long int request, void* data);
 
 #define AL_POLLIN 0x001   /* There is data to read.  */
 #define AL_POLLPRI 0x002   /* There is urgent data to read.  */
@@ -111,7 +114,7 @@ int32_t Rtos_DriverIoctl(void* drv, unsigned long int req, void* data);
    the file descriptor.  */
 #define AL_POLLERR 0x008   /* Error condition.  */
 #define AL_POLLHUP 0x010   /* Hung up.  */
-#define AL_POLLNVAL 0x020       /* Invalid polling request.  */
+#define AL_POLLNVAL 0x020  /* Invalid polling request.  */
 
 typedef struct Rtos_PollCtx
 {
@@ -120,14 +123,15 @@ typedef struct Rtos_PollCtx
   int32_t timeout;
 }Rtos_PollCtx;
 
-int32_t Rtos_DriverPoll(void* drv, Rtos_PollCtx* ctx);
+int32_t Rtos_DriverPoll(void* driver, Rtos_PollCtx* ctx);
 
 /****************************************************************************/
 /*  Atomics */
 /****************************************************************************/
-typedef int32_t Rtos_AtomicInt;
-Rtos_AtomicInt Rtos_AtomicIncrement(Rtos_AtomicInt* iVal);
-Rtos_AtomicInt Rtos_AtomicDecrement(Rtos_AtomicInt* iVal);
+typedef int32_t Rtos_AtomicType;
+typedef Rtos_AtomicType volatile Rtos_AtomicVolatileType;
+Rtos_AtomicType Rtos_AtomicIncrement(Rtos_AtomicVolatileType* iVal);
+Rtos_AtomicType Rtos_AtomicDecrement(Rtos_AtomicVolatileType* iVal);
 
 /****************************************************************************/
 /*  Cache Memory Coherency */

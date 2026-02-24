@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -386,10 +386,6 @@ void AL_Common_Encoder_ComputeRCParam(int32_t iCbOffset, int32_t iCrOffset, int3
    \return returns the initial QP value
 *****************************************************************************/
 uint8_t AL_Common_Encoder_GetInitialQP(uint32_t iBitPerPixel, AL_EProfile eProfile);
-
-#if AL_ENABLE_ENC_WATCHDOG
-void AL_Common_Encoder_SetWatchdogCB(AL_TEncCtx* pCtx, const AL_TEncSettings* pSettings);
-#endif
 
 void AL_Common_Encoder_SetHlsParam(AL_TEncChanParam* pChParam);
 bool AL_Common_Encoder_IsInitialQpProvided(AL_TEncChanParam* pChParam);

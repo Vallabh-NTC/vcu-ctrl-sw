@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common_enc/QpTableMeta.h"
@@ -13,9 +13,12 @@ static bool destroy(AL_TMetaData* pBaseMeta)
   return true;
 }
 
-static AL_TMetaData* clone(AL_TMetaData* pBaseMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pBaseMeta)
 {
-  AL_TQpTableMetaData* pMeta = (AL_TQpTableMetaData*)pBaseMeta;
+  if(!pBaseMeta)
+    return NULL;
+
+  AL_TQpTableMetaData const* pMeta = (AL_TQpTableMetaData const*)pBaseMeta;
   AL_TQpTableMetaData* pNewMeta = (AL_TQpTableMetaData*)Rtos_Malloc(sizeof(*pMeta));
 
   if(!pNewMeta)
@@ -23,7 +26,7 @@ static AL_TMetaData* clone(AL_TMetaData* pBaseMeta)
 
   pNewMeta->tMeta = pMeta->tMeta;
 
-  for(size_t i = 0; i < ARRAY_SIZE(pMeta->tQpTable); ++i)
+  for(int32_t i = 0; i < ARRAY_SIZE(pMeta->tQpTable); ++i)
     pNewMeta->tQpTable[i] = pMeta->tQpTable[i];
 
   return (AL_TMetaData*)pNewMeta;
@@ -36,11 +39,11 @@ AL_TQpTableMetaData* AL_QpTableMetaData_Create(void)
   if(!pMeta)
     return NULL;
 
-  pMeta->tMeta.eType = AL_META_QP_TABLE;
+  pMeta->tMeta.eType = AL_META_TYPE_QP_TABLE;
   pMeta->tMeta.MetaClone = clone;
   pMeta->tMeta.MetaDestroy = destroy;
 
-  for(size_t i = 0; i < ARRAY_SIZE(pMeta->tQpTable); ++i)
+  for(int32_t i = 0; i < ARRAY_SIZE(pMeta->tQpTable); ++i)
   {
     pMeta->tQpTable[i].iChunkIdx = 0;
     pMeta->tQpTable[i].uOffset = 0;

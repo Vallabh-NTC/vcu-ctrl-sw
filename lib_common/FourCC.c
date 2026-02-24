@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/FourCC.h"
@@ -282,6 +282,7 @@ bool AL_Is10bPacked(TFourCC tFourCC)
 {
   AL_TPicFormat tPicFormat;
   return AL_GetPicFormat(tFourCC, &tPicFormat) &&
+         AL_GetBitDepth(tFourCC) == 10 &&
          (tPicFormat.eSamplePackMode == AL_SAMPLE_PACK_MODE_PACKED ||
           tPicFormat.eSamplePackMode == AL_SAMPLE_PACK_MODE_PACKED_XV);
 }

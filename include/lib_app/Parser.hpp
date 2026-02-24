@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -17,6 +17,8 @@
 #include <vector>
 #include <iomanip>
 #include <cmath>
+
+#include "lib_rtos/types.h"
 
 std::deque<Token> toReversePolish(std::deque<Token>& tokens);
 std::string parseString(std::deque<Token>& tokens);
@@ -546,6 +548,7 @@ struct Callback
   std::vector<ParameterType> types;
   std::function<std::string()> defaultValue;
   std::vector<std::string> notes;
+  std::vector<std::string> warnings;
   std::vector<CallbackInfo> info;
   std::vector<SeeAlsoInfo> seealso;
   bool isAdvancedFeature = false;
@@ -724,6 +727,11 @@ struct ConfigParser
   void addSeeAlso(Section section, char const* name, SeeAlsoInfo seealso)
   {
     identifiers[section][tolowerStr(name)].seealso.push_back(seealso);
+  }
+
+  void addWarning(Section section, char const* name, std::string warning)
+  {
+    identifiers[section][tolowerStr(name)].warnings.push_back(warning);
   }
 
   template<typename T, typename U = long long int>

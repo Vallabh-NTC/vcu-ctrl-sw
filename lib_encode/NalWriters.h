@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_bitstream/IRbspWriter.h"
 #include "IP_Stream.h"
+#include "lib_common/SEI.h"
 
 typedef struct AL_TNalUnit
 {
@@ -36,20 +37,19 @@ typedef struct AL_TSeiPrefixCtx
   AL_TSps* sps;
   int32_t cpbInitialRemovalDelay;
   int32_t cpbRemovalDelay;
-  uint32_t uFlags;
+  AL_ESeiFlag eFlags;
   AL_TEncPicStatus const* pPicStatus;
   AL_THDRSEIs* pHDRSEIs;
 }AL_TSeiPrefixCtx;
 
 AL_TNalUnit AL_CreateSeiPrefix(AL_TSeiPrefixCtx* ctx, int32_t nut, int32_t layerId, int32_t tempId);
 
-typedef struct AL_TSeiPrefixUDUCtx
+typedef struct AL_TAllegroNumSlicesSeiCtx
 {
-  uint8_t uuid[16];
   int8_t numSlices;
-}AL_TSeiPrefixUDUCtx;
+}AL_TAllegroNumSlicesSeiCtx;
 
-AL_TNalUnit AL_CreateSeiPrefixUDU(AL_TSeiPrefixUDUCtx* ctx, int32_t nut, int32_t layerId, int32_t tempId);
+AL_TNalUnit AL_CreateAllegroNumSlicesSei(AL_TAllegroNumSlicesSeiCtx* ctx, int32_t nut, int32_t layerId, int32_t tempId);
 
 typedef struct AL_TSeiExternalCtx
 {

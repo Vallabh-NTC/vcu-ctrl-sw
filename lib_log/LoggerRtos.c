@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_log/LoggerRtos.h"
@@ -19,7 +19,7 @@ static void rtosLog(AL_ILogger* logger, char const label[MAX_LOG_LABEL_SIZE])
   Rtos_GetMutex(l->mutex);
   Rtos_LogWithoutLevel("%u ", label[0]);
   Rtos_LogWithoutLevel("%u ", (unsigned char)label[1]);
-  Rtos_LogWithoutLevel("%llu\n", AL_ITimer_GetTime(l->timer));
+  Rtos_LogWithoutLevel(PRIu64 "\n", AL_ITimer_GetTime(l->timer));
   Rtos_ReleaseMutex(l->mutex);
 }
 

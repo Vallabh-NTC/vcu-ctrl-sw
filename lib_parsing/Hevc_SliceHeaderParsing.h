@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,6 +6,13 @@
 #include "Concealment.h"
 #include "lib_common/HevcHeaders.h"
 #include "lib_common_dec/RbspParser.h"
+
+/*****************************************************************************/
+typedef struct AL_THevcRefListBuilderCB
+{
+  bool (* pFunc)(void* pUserParam, AL_THevcSliceHdr* pSlice);
+  void* pUserParam;
+}AL_THevcRefListBuilderCB;
 
 /*****************************************************************************
    \brief This function parses an Hevc SliceHeader
@@ -18,4 +25,4 @@
    \return return true if the current slice header is valid
    false otherwise
 *****************************************************************************/
-bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_THevcPps pPPSTable[]);
+bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_THevcPps pPPSTable[], AL_THevcRefListBuilderCB* pRefListBuilderCB);

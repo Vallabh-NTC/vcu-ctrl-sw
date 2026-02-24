@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -17,13 +17,13 @@ extern "C"
 }
 
 /*****************************************************************************/
-uint32_t ReadNextFrame(std::ifstream& File);
+AL_64U ReadNextFrame(std::ifstream& File);
 
 /*****************************************************************************/
-uint32_t ReadNextFrameMV(std::ifstream& File, int& iX, int& iY);
+AL_64U ReadNextFrameMV(std::ifstream& File, int& iX, int& iY);
 
 /*****************************************************************************/
-void DisplayFrameStatus(int32_t iFrameNum);
+void DisplayFrameStatus(AL_64S iFrameNum);
 
 /*****************************************************************************/
 

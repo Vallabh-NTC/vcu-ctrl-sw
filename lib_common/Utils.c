@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -9,6 +9,68 @@
 
 #include "Utils.h"
 #include "lib_common/Round.h"
+#include "lib_rtos/assert.h"
+#include "lib_rtos/types.h"
+
+/***************************************************************************/
+AL_64U BitsToBytes(AL_64U uBits)
+{
+  return AL_UnsignedRoundUpAndDivide(uBits, 8, 8);
+}
+
+/***************************************************************************/
+AL_64U BytesToBits(AL_64U uBytes)
+{
+  return uBytes * 8;
+}
+
+/***************************************************************************/
+AL_64U UnsignedClip3(AL_64U uVal, AL_64U uMin, AL_64U uMax)
+{
+  return ((uVal) < (uMin)) ? (uMin) : ((uVal) > (uMax)) ? (uMax) : (uVal);
+}
+
+/***************************************************************************/
+AL_64S Clip3(AL_64S iVal, AL_64S iMin, AL_64S iMax)
+{
+  return ((iVal) < (iMin)) ? (iMin) : ((iVal) > (iMax)) ? (iMax) : (iVal);
+}
+
+/***************************************************************************/
+AL_64S Max(AL_64S iVal1, AL_64S iVal2)
+{
+  return (iVal1 < iVal2) ? iVal2 : iVal1;
+}
+
+/***************************************************************************/
+AL_64S Min(AL_64S iVal1, AL_64S iVal2)
+{
+  return (iVal1 > iVal2) ? iVal2 : iVal1;
+}
+
+/***************************************************************************/
+AL_64S Abs(AL_64S iVal)
+{
+  return (iVal > 0) ? iVal : -iVal;
+}
+
+/***************************************************************************/
+AL_64S Sign(AL_64S iVal)
+{
+  return (iVal > 0) ? 1 : ((iVal < 0) ? -1 : 0);
+}
+
+/***************************************************************************/
+AL_64U UnsignedMax(AL_64U uVal1, AL_64U uVal2)
+{
+  return (uVal1 < uVal2) ? uVal2 : uVal1;
+}
+
+/***************************************************************************/
+AL_64U UnsignedMin(AL_64U uVal1, AL_64U uVal2)
+{
+  return (uVal1 > uVal2) ? uVal2 : uVal1;
+}
 
 /***************************************************************************/
 static int32_t const tab_ceil_log2[] =
@@ -63,6 +125,12 @@ int32_t floor_log2(int32_t n)
 int32_t GetBlkNumber(AL_TDimension tDim, uint32_t uBlkWidth, uint32_t uBlkHeight)
 {
   return AL_RoundUpAndDivide(tDim.iWidth, uBlkWidth, uBlkWidth) * AL_RoundUpAndDivide(tDim.iHeight, uBlkHeight, uBlkHeight);
+}
+
+/****************************************************************************/
+int32_t GetSquareBlkNumber(AL_TDimension tDim, uint32_t uBlkSize)
+{
+  return GetBlkNumber(tDim, uBlkSize, uBlkSize);
 }
 
 /****************************************************************************/

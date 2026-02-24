@@ -1,12 +1,13 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "EncUtils.h"
 #include "IP_EncoderCtx.h"
-#include "EncHwScalingList.h"
+#include "HEVC_EncHwScalingList.h"
 #include "lib_common/SyntaxConversion.h"
 #include "lib_common/Utils.h"
 #include "lib_common/Round.h"
+#include "lib_common/ScalingList.h"
 #include "lib_common_enc/EncBuffersInternal.h"
 #include "lib_common_enc/Itu_Utils.h"
 

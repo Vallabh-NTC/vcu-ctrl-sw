@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -9,8 +9,8 @@
 #pragma once
 
 #include "lib_fpga/DmaAllocLinux.h"
+#include "lib_common/I_Communication.h"
 
-typedef struct AL_TDriver AL_TDriver;
 typedef struct AL_IEncScheduler AL_IEncScheduler;
 
 /*****************************************************************************
@@ -21,6 +21,6 @@ typedef struct AL_IEncScheduler AL_IEncScheduler;
    \param[in] pDmaAllocator a dma allocator that will be used to create work buffers and to map some of the buffer that are sent to the scheduler.
    \param[in] deviceFile The file that represents the device and that will be opened by the driver to communicate with the scheduler.
 *****************************************************************************/
-AL_IEncScheduler* AL_SchedulerMcu_Create(AL_TDriver* driver, AL_TLinuxDmaAllocator* pDmaAllocator, char const* deviceFile);
+AL_IEncScheduler* AL_SchedulerMcu_Create(AL_ICommunication* driver, AL_TLinuxDmaAllocator* pDmaAllocator, char const* deviceFile);
 
 /*!@}*/

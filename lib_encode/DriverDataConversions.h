@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#if __linux__
+#if defined(__linux__)
 #pragma once
 
 #include "allegro_ioctl_mcu_enc.h"
@@ -12,5 +12,4 @@
 
 void setChannelParam(struct al5_params* msg, AL_TMemDesc* pMDChParam, AL_TMemDesc* pEP1);
 void setEncodeMsg(struct al5_encode_msg* msg, AL_TEncInfo* encInfo, AL_TEncRequestInfo* reqInfo, AL_TEncPicBufAddrs* bufAddrs);
-
 #endif

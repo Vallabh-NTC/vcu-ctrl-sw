@@ -1,16 +1,14 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#if __linux__
-
+#if defined(__linux__)
 #include "DriverDataConversions.h"
-#include <string.h>
-
 #include "lib_rtos/types.h"
+#include "lib_rtos/lib_rtos.h"
 
 static void write(struct al5_params* msg, void* data, int32_t size)
 {
-  memcpy(msg->opaque + (msg->size / 4), data, size);
+  Rtos_Memcpy(msg->opaque + (msg->size / 4), data, size);
   msg->size += ((size + 3) / 4) * 4;
 }
 
@@ -28,6 +26,7 @@ void setChannelParam(struct al5_params* msg, AL_TMemDesc* pMDChParam, AL_TMemDes
   else
     uMcuVirtAddr = 0;
   write(msg, &uMcuVirtAddr, sizeof(uMcuVirtAddr));
+  Rtos_FlushCacheMemory(&msg->opaque, msg->size);
 }
 
 static void setPicParam(struct al5_params* msg, AL_TEncInfo* encInfo, AL_TEncRequestInfo* reqInfo)
@@ -35,7 +34,6 @@ static void setPicParam(struct al5_params* msg, AL_TEncInfo* encInfo, AL_TEncReq
   static_assert(sizeof(*encInfo) + sizeof(*reqInfo) <= sizeof(msg->opaque), "Driver struct is too small for AL_TEncInfo & AL_TEncRequestInfo");
   msg->size = 0;
   write(msg, encInfo, sizeof(*encInfo));
-
   write(msg, &reqInfo->eReqOptions, sizeof(reqInfo->eReqOptions));
 
   if(reqInfo->eReqOptions & AL_OPT_SCENE_CHANGE)
@@ -61,6 +59,7 @@ static void setPicParam(struct al5_params* msg, AL_TEncInfo* encInfo, AL_TEncReq
     write(msg, &reqInfo->smartParams.iLFBetaOffset, sizeof(reqInfo->smartParams.iLFBetaOffset));
     write(msg, &reqInfo->smartParams.iLFTcOffset, sizeof(reqInfo->smartParams.iLFTcOffset));
   }
+  Rtos_FlushCacheMemory(msg->opaque, msg->size);
 }
 
 static void setBuffersAddrs(struct al5_params* msg, AL_TEncPicBufAddrs* pBuffersAddrs)
@@ -68,6 +67,7 @@ static void setBuffersAddrs(struct al5_params* msg, AL_TEncPicBufAddrs* pBuffers
   static_assert(sizeof(*pBuffersAddrs) <= sizeof(msg->opaque), "Driver struct is too small for AL_TEncPicBufAddrs");
   msg->size = 0;
   write(msg, pBuffersAddrs, sizeof(*pBuffersAddrs));
+  Rtos_FlushCacheMemory(msg->opaque, msg->size);
 }
 
 void setEncodeMsg(struct al5_encode_msg* msg, AL_TEncInfo* encInfo, AL_TEncRequestInfo* reqInfo, AL_TEncPicBufAddrs* pBuffersAddrs)

@@ -1,14 +1,14 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "I_PictMngr.h"
 #include "I_PictMngrCallbacks.h"
 
-#include <limits.h>
 #include "lib_common/PicFormat.h"
 #include "lib_common_dec/DecOutputSettingsInternal.h"
 #include "lib_common/Error.h"
 #include "lib_common/Round.h"
+#include "lib_common/Index.h"
 #include "lib_common/PixMapBufferInternal.h"
 #include "lib_common/BufferStreamMeta.h"
 #include "lib_common_dec/IpDecFourCC.h"
@@ -426,7 +426,7 @@ static void sPictMngr_IncrementAnnexBuf(void* pUserParam, AL_TIndex tAnnexID)
   AL_TPictMngrCtx* pCtx = (AL_TPictMngrCtx*)pUserParam;
 
   if(pCtx->bCompleteInit && (pCtx->AnnexBufPool.uBufCnt > 0))
-    AL_PictMngrBufPool_IncrementBufID(&pCtx->AnnexBufPool, tAnnexID);
+    AL_TBufPool_IncrementBufID(&pCtx->AnnexBufPool, tAnnexID);
 }
 
 /*************************************************************************/
@@ -436,7 +436,7 @@ static void sPictMngr_DecrementAnnexBuf(void* pUserParam, AL_TIndex tAnnexID)
   AL_TPictMngrCtx* pCtx = (AL_TPictMngrCtx*)pUserParam;
 
   if(pCtx->bCompleteInit && pCtx->bIsAnnexPoolSet)
-    AL_PictMngrBufPool_DecrementBufID(&pCtx->AnnexBufPool, tAnnexID);
+    AL_TBufPool_DecrementBufID(&pCtx->AnnexBufPool, tAnnexID);
 }
 
 /*****************************************************************************/
@@ -528,7 +528,7 @@ bool AL_PictMngr_BasicInit(AL_TPictMngrCtx* pCtx, AL_IReferenceManager* pRefMngr
   {
     size_t tAnnexSize = sPictMngr_GetAllocationSizeForAnnexBuffer(pCtx, pParam->zSubBufSizes, pParam->uNumSubBuf);
 
-    if(!AL_PictMngrBufPool_Init(&pCtx->AnnexBufPool, pParam->uNumAnnexBuf, tAnnexSize, pAllocator, "Annex"))
+    if(!AL_TBufPool_Init(&pCtx->AnnexBufPool, pParam->uNumAnnexBuf, tAnnexSize, pAllocator, "Annex"))
       return false;
 
     pCtx->bIsAnnexPoolSet = true;
@@ -577,7 +577,7 @@ void AL_PictMngr_Terminate(AL_TPictMngrCtx* pCtx)
   AL_IReferenceManager_Terminate(pCtx->pRefMngr);
 
   if(pCtx->bIsAnnexPoolSet)
-    AL_PictMngrBufPool_Terminate(&pCtx->AnnexBufPool);
+    AL_TBufPool_Terminate(&pCtx->AnnexBufPool);
 
   if(pCtx->bCompleteInit)
     sFrmBufPool_Terminate(&pCtx->FrmBufPool);
@@ -591,7 +591,7 @@ void AL_PictMngr_Deinit(AL_TPictMngrCtx* pCtx)
     AL_IReferenceManager_Deinit(pCtx->pRefMngr);
 
     if(pCtx->bIsAnnexPoolSet)
-      AL_PictMngrBufPool_Deinit(&pCtx->AnnexBufPool);
+      AL_TBufPool_Deinit(&pCtx->AnnexBufPool);
 
     if(pCtx->bCompleteInit)
       sFrmBufPool_Deinit(&pCtx->FrmBufPool);
@@ -655,20 +655,22 @@ bool AL_PictMngr_BeginFrame(AL_TPictMngrCtx* pCtx, bool bStartsNewCVS, AL_TDimen
   (void)eDecodedChromaMode;
   pCtx->tFrameID = sFrmBufPool_Pop(&pCtx->FrmBufPool);
 
-  if(pCtx->tFrameID == AL_BAD_INDEX)
+  if(!AL_IS_VALID_INDEX(pCtx->tFrameID))
     return false;
 
   if(pCtx->bIsAnnexPoolSet)
   {
-    pCtx->tAnnexID = AL_PictMngrBufPool_GetFreeBufID(&pCtx->AnnexBufPool);
-    Rtos_Assert(pCtx->tAnnexID != AL_BAD_INDEX);
+    pCtx->tAnnexID = AL_TBufPool_GetFreeBufID(&pCtx->AnnexBufPool);
+    Rtos_Assert(AL_IS_VALID_INDEX(pCtx->tAnnexID));
   }
 
   AL_TRecBuffers* pBuffers = sFrmBufPool_GetBuffersFromID(&pCtx->FrmBufPool, pCtx->tFrameID);
 
   AL_PixMapBuffer_SetDimension(pBuffers->pFrame, tDim);
 
-  sBuffer_ChangePictChromaMode(pBuffers->pFrame, eDecodedChromaMode);
+  {
+    sBuffer_ChangePictChromaMode(pBuffers->pFrame, eDecodedChromaMode);
+  }
 
   pCtx->FrmBufPool.vFrameData[pCtx->tFrameID].tRecInfo.bStartsNewCVS = bStartsNewCVS;
 
@@ -700,13 +702,13 @@ void AL_PictMngr_CancelFrame(AL_TPictMngrCtx* pCtx)
 {
   Rtos_Assert(pCtx->bCompleteInit);
 
-  if(pCtx->tAnnexID != AL_BAD_INDEX)
+  if(AL_IS_VALID_INDEX(pCtx->tAnnexID))
   {
-    AL_PictMngrBufPool_DecrementBufID(&pCtx->AnnexBufPool, pCtx->tAnnexID);
+    AL_TBufPool_DecrementBufID(&pCtx->AnnexBufPool, pCtx->tAnnexID);
     pCtx->tAnnexID = AL_BAD_INDEX;
   }
 
-  if(pCtx->tFrameID != AL_BAD_INDEX)
+  if(AL_IS_VALID_INDEX(pCtx->tFrameID))
   {
     sFrmBufPool_DecrementBufID(&pCtx->FrmBufPool, pCtx->tFrameID, pCtx->bForceDisplay);
     pCtx->tFrameID = AL_BAD_INDEX;
@@ -799,7 +801,7 @@ void AL_PictMngr_UnlockID(AL_TPictMngrCtx* pCtx, AL_TIndex tFrameID, AL_TIndex t
   sFrmBufPool_DecrementBufID(&pCtx->FrmBufPool, tFrameID, pCtx->bForceDisplay);
 
   if(pCtx->bIsAnnexPoolSet)
-    AL_PictMngrBufPool_DecrementBufID(&pCtx->AnnexBufPool, tAnnexID);
+    AL_TBufPool_DecrementBufID(&pCtx->AnnexBufPool, tAnnexID);
 }
 
 /***************************************************************************/
@@ -838,7 +840,7 @@ static AL_TBuffer* sPictMngr_GetDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TInfoDec
 {
   Rtos_Assert(pCtx->bCompleteInit);
 
-  if(tFrameID == AL_BAD_INDEX)
+  if(!AL_IS_VALID_INDEX(tFrameID))
     return NULL;
 
   AL_EFbStorageMode eOutputStorageMode = pCtx->eFbStorageMode;
@@ -1095,13 +1097,13 @@ bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSli
 {
   Rtos_Assert(pCtx->bCompleteInit);
 
-  if(pCtx->tFrameID == AL_BAD_INDEX)
+  if(!AL_IS_VALID_INDEX(pCtx->tFrameID))
     return false;
 
   AL_TRecBuffers* pRecBuffers = sFrmBufPool_GetBuffersFromID(&pCtx->FrmBufPool, pCtx->tFrameID);
   pRecs->pFrame = pRecBuffers->pFrame;
 
-  if(pAnnex && pCtx->tAnnexID != AL_BAD_INDEX)
+  if(pAnnex && AL_IS_VALID_INDEX(pCtx->tAnnexID))
     sPictMngr_GetAnnexBuffers(pCtx, &pCtx->AnnexBufPool.pBufs[pCtx->tAnnexID], pAnnex);
 
   if(!pRefBuffers)
@@ -1116,20 +1118,22 @@ bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSli
 
   for(int32_t i = 0; i < uMaxRef; ++i)
   {
-    if(pFrameIds[i] != AL_BAD_INDEX)
     {
-      AL_TRecBuffers* pBufs = sFrmBufPool_GetBuffersFromID(&pCtx->FrmBufPool, pFrameIds[i]);
-      pRefBuffers->pRefBufs[i] = pBufs->pFrame;
-    }
-    else
-      pRefBuffers->pRefBufs[i] = pRecs->pFrame;
+      if(AL_IS_VALID_INDEX(pFrameIds[i]))
+      {
+        AL_TRecBuffers* pBufs = sFrmBufPool_GetBuffersFromID(&pCtx->FrmBufPool, pFrameIds[i]);
+        pRefBuffers->pRefBufs[i] = pBufs->pFrame;
+      }
+      else
+        pRefBuffers->pRefBufs[i] = pRecs->pFrame;
 
-    if(pAnnexIds[i] != AL_BAD_INDEX)
-      sPictMngr_GetAnnexBuffers(pCtx, &pCtx->AnnexBufPool.pBufs[pAnnexIds[i]], pRefBuffers->pAnnexBufs[i]);
-    else
-    {
-      for(size_t j = 0; j < pCtx->zNumAnnexBuf; j++)
-        pRefBuffers->pAnnexBufs[i][j] = pAnnex[j];
+      if(AL_IS_VALID_INDEX(pAnnexIds[i]))
+        sPictMngr_GetAnnexBuffers(pCtx, &pCtx->AnnexBufPool.pBufs[pAnnexIds[i]], pRefBuffers->pAnnexBufs[i]);
+      else
+      {
+        for(size_t j = 0; j < pCtx->zNumAnnexBuf; j++)
+          pRefBuffers->pAnnexBufs[i][j] = pAnnex[j];
+      }
     }
   }
 
@@ -1137,10 +1141,10 @@ bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSli
 }
 
 /*************************************************************************/
-void AL_PictMngr_GetAnnexBuffersFromReferenceID(AL_TPictMngrCtx* pCtx, uint8_t uRefId, TBuffer* pAnnexBuffers)
+void AL_PictMngr_GetAnnexBuffersFromReferenceID(AL_TPictMngrCtx* pCtx, AL_TIndex tRefId, TBuffer* pAnnexBuffers)
 {
-  AL_TIndex tAnnexID = AL_IReferenceManager_GetAnnexIdFromReferenceId(pCtx->pRefMngr, uRefId);
-  Rtos_Assert(tAnnexID != AL_BAD_INDEX);
+  AL_TIndex tAnnexID = AL_IReferenceManager_GetAnnexIdFromReferenceId(pCtx->pRefMngr, tRefId);
+  Rtos_Assert(AL_IS_VALID_INDEX(tAnnexID));
 
   TBuffer const* pRawAnnexBuf = &pCtx->AnnexBufPool.pBufs[tAnnexID];
   sPictMngr_GetAnnexBuffers(pCtx, pRawAnnexBuf, pAnnexBuffers);

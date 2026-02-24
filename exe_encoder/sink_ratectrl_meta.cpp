@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <fstream>
 #include <string>
 #include <stdexcept>
+#include <iostream>
 
 #include "sink_ratectrl_meta.hpp"
 #include "lib_app/Sink.hpp"
@@ -38,8 +39,10 @@ private:
   }
 
 public:
-  explicit SinkRateCtrlMeta(std::string const& path)
+  explicit SinkRateCtrlMeta(std::string const& path, AL_ECodec eCodec)
   {
+    (void)eCodec;
+
     if(path.empty())
       throw std::runtime_error("Output directory for stat is not set");
     else if(!FolderExists(path))
@@ -55,7 +58,7 @@ public:
 
     if(pMeta != NULL)
     {
-      if(pMeta->eStatCtrl & AL_RATECTRL_STAT_MODE_DEFAULT)
+      if((pMeta->eStatCtrl & AL_RATECTRL_STAT_MODE_DEFAULT))
       {
         m_RateCtrlStatsFile << "NumBytes: " << pMeta->tRateCtrlStats.uNumBytes << ", MinQP: " << pMeta->tRateCtrlStats.uMinQP << ", MaxQP: " << pMeta->tRateCtrlStats.uMaxQP << ", NumSkip: " << pMeta->tRateCtrlStats.uNumSkip << ", NumIntra: " << pMeta->tRateCtrlStats.uNumIntra << "\n";
       }
@@ -73,7 +76,7 @@ public:
   }
 };
 
-IFrameSink* createRateCtrlMetaSink(std::string const& path)
+IFrameSink* createRateCtrlMetaSink(std::string const& path, AL_ECodec eCodec)
 {
-  return new SinkRateCtrlMeta(path);
+  return new SinkRateCtrlMeta(path, eCodec);
 }

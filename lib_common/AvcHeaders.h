@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -185,8 +185,9 @@ typedef struct AL_TAvcSliceHdr
   AL_TAvcSps* pSPS;
 }AL_TAvcSliceHdr;
 
-typedef struct AL_TAvcHdrSvcExt // nal_unit_header_svc_extensiont
+typedef struct AL_TAvcHdrSvcExt
 {
+  // nal_unit_header_svc_extension
   uint8_t idr_flag;
   uint8_t priority_id;
   uint8_t no_inter_layer_pred_flag;
@@ -196,4 +197,8 @@ typedef struct AL_TAvcHdrSvcExt // nal_unit_header_svc_extensiont
   uint8_t use_ref_base_pic_flag;
   uint8_t discardable_flag;
   uint8_t output_flag;
+
+  // prefix_nal_unit_svc
+  uint8_t store_ref_base_pic_flag;
+  uint8_t additional_prefix_nal_unit_extension_flag;
 }AL_TAvcHdrSvcExt;

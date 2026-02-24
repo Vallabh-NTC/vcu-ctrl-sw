@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -91,7 +91,6 @@ int32_t AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOu
    with IP decoder.
  *****************************************************************************/
 int32_t AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
-/*!@}*/
 
 /*****************************************************************************
    \brief Checks that decoder output settings are valid
@@ -105,3 +104,5 @@ int32_t AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
    with IP decoder.
 *****************************************************************************/
 int32_t AL_DecOutputSettings_CheckValidity(AL_TDecOutputSettings const* pDecOutSettings, AL_ECodec eCodec, FILE* pOut);
+
+/*!@}*/

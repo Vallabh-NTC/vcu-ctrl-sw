@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "Avc_SliceHeaderParsing.h"
@@ -7,16 +7,13 @@
 #include "lib_common/Utils.h"
 #include "lib_common/Nuts.h"
 #include "lib_common_dec/RbspParser.h"
+#include "lib_common/AvcUtils.h"
 #include "lib_rtos/lib_rtos.h"
 
 static int32_t const AL_AVC_MAX_SLICE_TYPE = 9;
 static int32_t const AL_AVC_MAX_IDR_PIC_ID = 65535;
 static int32_t const AL_AVC_MAX_REORDER_IDC = 3;
 static int32_t const AL_AVC_MAX_CABAC_INIT_IDC = 2;
-static int32_t const AVC_SLICE_TYPE[5] =
-{
-  1, 0, 2, 3, 4
-};
 
 /*****************************************************************************/
 static void AL_AVC_sReadWPCoeff(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSlice, uint8_t uL0L1)
@@ -79,7 +76,6 @@ static void AL_AVC_spread_weight_table(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSl
    \brief the ref_pic_list_modification function parses the reordering syntax elements from a Slice Header NAL
    \param[in]  pRP             Pointer to NAL buffer
    \param[out] pSlice          Pointer to the slice header structure that will be filled
-   \param[in]  NumPocTotalCurr Number of pictures available as reference for the current picture
    \return return true if no error was detected in reordering syntax
 *****************************************************************************/
 static bool AL_AVC_sref_pic_list_reordering(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSlice)
@@ -226,6 +222,12 @@ static void setAvcSliceHeaderDefaultValues(AL_TAvcSliceHdr* pSlice)
 }
 
 /*****************************************************************************/
+int32_t AL_AVC_ParseGetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields)
+{
+  return (bHasFields || pSPS->frame_mbs_only_flag) ? (pSPS->pic_height_in_map_units_minus1 + 1) : ((pSPS->pic_height_in_map_units_minus1 + 1) * 2);
+}
+
+/*****************************************************************************/
 AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_TAvcPps pPPSTable[])
 {
   setAvcSliceHeaderDefaultValues(pSlice);
@@ -254,7 +256,8 @@ AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_
 
   pSlice->pic_parameter_set_id = currentPPSId;
 
-  int32_t const MaxNumMb = (pPPSTable[currentPPSId].pSPS->pic_height_in_map_units_minus1 + 1) * (pPPSTable[currentPPSId].pSPS->pic_width_in_mbs_minus1 + 1);
+  /* this should take account of pSlice->field_pic_flag, as deciphered later, but we do not support field pics anyway*/
+  int32_t const MaxNumMb = AL_AVC_ParseGetFrameHeight(pPPSTable[currentPPSId].pSPS, false) * (pPPSTable[currentPPSId].pSPS->pic_width_in_mbs_minus1 + 1);
 
   if(pSlice->first_mb_in_slice >= MaxNumMb)
   {
@@ -269,7 +272,7 @@ AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_
   }
 
   pSlice->slice_type %= 5;
-  pSlice->slice_type = AVC_SLICE_TYPE[pSlice->slice_type];
+  pSlice->slice_type = AL_AVC_ToSliceType(pSlice->slice_type);
 
   // check slice_type coherency
   if((pSlice->slice_type > AL_AVC_MAX_SLICE_TYPE) || (pSlice->nal_unit_type == AL_AVC_NUT_VCL_IDR && pSlice->slice_type != AL_SLICE_I && pSlice->slice_type != AL_SLICE_SI))

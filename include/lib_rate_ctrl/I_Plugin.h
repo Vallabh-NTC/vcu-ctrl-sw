@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -59,10 +59,10 @@ typedef struct
 *****************************************************************************/
 typedef struct
 {
-  uint32_t uSrcOrder; /*!< Source picture number in display order */
+  AL_64U uSrcOrder; /*!< Source picture number in display order */
   uint32_t uFlags; /*!< Bitfield containing information about this picture (For example AL_PICT_INFO_IS_REF or AL_PICT_INFO_IS_IDR) \see include/lib_common_enc/PictureInfo.h for the full list */
   int32_t iPOC; /*!< Picture Order Count */
-  int32_t iFrameNum; /*!< H264 frame_num field */
+  AL_64U iFrameNum; /*!< H264 frame_num field */
   AL_ESliceType eType; /*!< The type of the current slice (I, P, B, ...) */
   AL_EPicStruct ePicStruct; /*!< The pic_struct field (Are we using interlaced fields or not) */
 }Plugin_PictureInfo;

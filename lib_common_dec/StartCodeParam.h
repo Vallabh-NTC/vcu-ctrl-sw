@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,7 +9,7 @@
 /*****************************************************************************
    \brief Start Code Detector Parameters : Mimics structure for IP registers
 *****************************************************************************/
-typedef struct AL_TSCParam
+typedef struct AL_TStartCodeParam
 {
   AL_ECodec eCodec;    /*!< Specifies the stream format */
   uint8_t StopParam;   /*!< Parameter used to stop the start code detecting >!*/
@@ -20,12 +20,12 @@ typedef struct AL_TSCParam
                           3 -> stop after finding StopParam number of entire Access Unit >!*/
   uint16_t MaxSize;    /*!< Size of the output start code buffer (in bytes) */
   uint8_t ChannelID;  /*!< Specifies the channel number */
-}AL_TScParam;
+}AL_TStartCodeParam;
 
 /*****************************************************************************
    \brief Start Code Buffers structure
 *****************************************************************************/
-typedef struct AL_TScBufferAddrs
+typedef struct AL_TStartCodeBufferAddrs
 {
   AL_PADDR pStream;
   uint32_t uMaxSize;
@@ -33,7 +33,7 @@ typedef struct AL_TScBufferAddrs
   uint32_t uAvailSize;
 
   AL_PADDR pBufOut;
-}AL_TScBufferAddrs;
+}AL_TStartCodeBufferAddrs;
 
 /*****************************************************************************
    \brief Start Code Detector Output
@@ -43,7 +43,16 @@ typedef struct AL_TStartCode
   uint32_t uPosition;  /* Position of the detected NAL in the circular buffer*/
   uint8_t uNUT;       /* Nal Unit Type of the corresponding NAL */
   uint8_t uTemporalID; /* Temporal ID of the detected NAL*/
-  uint16_t uReserved;
+
+  union
+  {
+    uint16_t u16;
+    struct multilayer
+    {
+      uint8_t uLayerID;
+      uint8_t u8;
+    }multilayer;
+  }uReserved;
 }AL_TStartCode;
 
 typedef struct AL_TNal
@@ -55,8 +64,8 @@ typedef struct AL_TNal
 /*****************************************************************************
    \brief Start Code Detector Status
 *****************************************************************************/
-typedef struct AL_TSCStatus
+typedef struct AL_TStartCodeStatus
 {
   uint16_t uNumSC;    /* number of Start Code found */
   uint32_t uNumBytes; /* number of bytes parsed */
-}AL_TScStatus;
+}AL_TStartCodeStatus;

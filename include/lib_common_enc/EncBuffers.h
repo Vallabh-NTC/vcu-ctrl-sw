@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -45,9 +45,6 @@ static const AL_TBufInfo EP2_BUF_QP_BY_MB =
    \return maximum size (in bytes) needed to store
 *****************************************************************************/
 uint32_t AL_GetAllocSizeEP2(AL_TDimension tDim, AL_ECodec eCodec, uint8_t uLog2MaxCuSize);
-
-// AL_DEPRECATED("Doesn't support pitch different of AL_EncGetMinPitch. Use AL_GetAllocSizeSrc(). Will be removed in 0.9")
-uint32_t AL_GetAllocSize_Src(AL_TDimension tDim, uint8_t uBitDepth, AL_EChromaMode eChromaMode, AL_ESrcMode eSrcFmt);
 
 /*****************************************************************************
    \brief Retrieves the size of a Source YUV frame buffer
@@ -107,13 +104,5 @@ bool AL_IsSrcInterleaved(AL_ESrcMode eSrcMode);
    \return true if source mode is in MSB (Most Significant Bit) format, false otherwise
 *****************************************************************************/
 bool AL_IsSrcMSB(AL_ESrcMode eSrcMode);
-
-AL_DEPRECATED("Renamed as AL_EncGetMinPitch, Will be removed in 0.9")
-int32_t AL_CalculatePitchValue(int32_t iWidth, uint8_t uBitDepth, AL_EFbStorageMode eStorageMode);
-
-AL_DEPRECATED("Use AL_GetAllocSizeSrc_PixPlane.")
-uint32_t AL_GetAllocSizeSrc_Y(AL_ESrcMode eSrcFmt, int32_t iPitch, int32_t iStrideHeight);
-AL_DEPRECATED("Use AL_GetAllocSizeSrc_PixPlane.")
-uint32_t AL_GetAllocSizeSrc_UV(AL_ESrcMode eSrcFmt, int32_t iPitch, int32_t iStrideHeight, AL_EChromaMode eChromaMode);
 
 /*!@}*/

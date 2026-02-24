@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -65,31 +65,39 @@ void FlushNAL(IRbspWriter* pWriter, AL_TBitStreamLite* pStream, uint8_t uNUT, AL
 void WriteFillerData(IRbspWriter* pWriter, AL_TBitStreamLite* pStream, uint8_t uNUT, AL_TNalHeader const* pHeader, int32_t iBytesCount, bool bDontFill, AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned)
 {
   int32_t bookmark = AL_BitStreamLite_GetBitsCount(pStream);
+  uint8_t* pInitialStreamData = AL_BitStreamLite_GetCurData(pStream);
+
   pWriter->WriteStartCode(pStream, uNUT, eStartCodeBytesAligned);
 
   for(int32_t i = 0; i < pHeader->size; i++)
     writeByte(pStream, pHeader->bytes[i]);
 
   int32_t headerInBytes = (AL_BitStreamLite_GetBitsCount(pStream) - bookmark) / 8;
-  int32_t bytesToWrite = iBytesCount - headerInBytes;
-  int32_t spaceRemainingInBytes = (pStream->iMaxBits / 8) - (AL_BitStreamLite_GetBitsCount(pStream) / 8);
+  int32_t bytesWritten = headerInBytes;
+  int32_t bytesToWrite = (iBytesCount - headerInBytes);
+  int32_t spaceRemainingInBytes = BitsToBytes(pStream->iMaxBits) - BitsToBytes(AL_BitStreamLite_GetBitsCount(pStream));
 
   bytesToWrite = Min(spaceRemainingInBytes, bytesToWrite);
-  int32_t byteWritten = bytesToWrite;
   bytesToWrite -= 1; // -1 for the final 0x80
-  uint8_t* pInitialStreamData = AL_BitStreamLite_GetCurData(pStream);
 
   if(bytesToWrite > 0)
   {
     if(bDontFill)
+    {
       AL_BitStreamLite_GetCurData(pStream)[0] = 0xFF; // set single 0xFF byte as start marker
+      bytesWritten++;
+    }
     else
+    {
       Rtos_Memset(AL_BitStreamLite_GetCurData(pStream), 0xFF, bytesToWrite);
+      bytesWritten += bytesToWrite;
+    }
     AL_BitStreamLite_SkipBits(pStream, BytesToBits(bytesToWrite));
   }
 
   writeByte(pStream, 0x80);
-  Rtos_FlushCacheMemory(pInitialStreamData, byteWritten);
+  bytesWritten++;
+  Rtos_FlushCacheMemory(pInitialStreamData, bytesWritten);
 }
 
 /****************************************************************************/

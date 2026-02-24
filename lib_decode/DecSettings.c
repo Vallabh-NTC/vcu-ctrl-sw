@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
@@ -32,16 +32,21 @@ void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
   pSettings->eFBStorageMode = AL_FB_RASTER;
   pSettings->tStream.eChroma = AL_CHROMA_MAX_ENUM;
   pSettings->tStream.eSequenceMode = AL_SM_MAX_ENUM;
-  pSettings->eCodec = AL_CODEC_HEVC;
+  pSettings->eCodec = AL_DEC_DEFAULT_CODEC;
   pSettings->bUseIFramesAsSyncPoint = false;
   pSettings->eInputMode = AL_DEC_UNSPLIT_INPUT;
-
+#if AL_ENABLE_SW_DEC_MVHEVC
+  pSettings->bIsMvHevcActive = false;
+  pSettings->uNumLayer = 0;
+#endif
   pSettings->tStream.tDim.iWidth = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.tDim.iHeight = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.iBitDepth = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.eProfile = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.iLevel = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.bDecodeIntraOnly = false;
+  pSettings->tStream.bDecodeRefOnly = false;
+  pSettings->tStream.uTemporalLayer = (uint32_t)-1; // all layers
   pSettings->tStream.iMaxRef = 0;
 }
 

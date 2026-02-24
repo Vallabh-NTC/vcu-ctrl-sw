@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <fstream>
@@ -12,18 +12,18 @@
 using namespace std;
 
 int32_t g_Verbosity = 10;
-static std::mutex s_LogMutex;
 
-static void Message(EConColor Color, const char* sMsg, va_list args)
+static void Message(EConColor Color, char const* sMsg, va_list args)
 {
+  static std::mutex s_LogMutex;
   std::lock_guard<std::mutex> guard(s_LogMutex);
   SetConsoleColor(Color);
-  vprintf(sMsg, args);
+  vfprintf(stdout, sMsg, args);
   fflush(stdout);
   SetConsoleColor(CC_DEFAULT);
 }
 
-void LogError(const char* sMsg, ...)
+void LogError(char const* sMsg, ...)
 {
   if(g_Verbosity < 1)
     return;
@@ -34,7 +34,7 @@ void LogError(const char* sMsg, ...)
   va_end(args);
 }
 
-void LogWarning(const char* sMsg, ...)
+void LogWarning(char const* sMsg, ...)
 {
   if(g_Verbosity < 3)
     return;
@@ -45,7 +45,7 @@ void LogWarning(const char* sMsg, ...)
   va_end(args);
 }
 
-void LogDimmedWarning(const char* sMsg, ...)
+void LogDimmedWarning(char const* sMsg, ...)
 {
   if(g_Verbosity < 4)
     return;
@@ -56,7 +56,7 @@ void LogDimmedWarning(const char* sMsg, ...)
   va_end(args);
 }
 
-void LogInfo(const char* sMsg, ...)
+void LogInfo(char const* sMsg, ...)
 {
   if(g_Verbosity < 5)
     return;
@@ -67,7 +67,7 @@ void LogInfo(const char* sMsg, ...)
   va_end(args);
 }
 
-void LogInfo(EConColor Color, const char* sMsg, ...)
+void LogInfo(EConColor Color, char const* sMsg, ...)
 {
   if(g_Verbosity < 5)
     return;
@@ -78,7 +78,7 @@ void LogInfo(EConColor Color, const char* sMsg, ...)
   va_end(args);
 }
 
-void LogVerbose(const char* sMsg, ...)
+void LogVerbose(char const* sMsg, ...)
 {
   if(g_Verbosity < 7)
     return;
@@ -89,7 +89,7 @@ void LogVerbose(const char* sMsg, ...)
   va_end(args);
 }
 
-void LogVerbose(EConColor Color, const char* sMsg, ...)
+void LogVerbose(EConColor Color, char const* sMsg, ...)
 {
   if(g_Verbosity < 7)
     return;
@@ -100,7 +100,7 @@ void LogVerbose(EConColor Color, const char* sMsg, ...)
   va_end(args);
 }
 
-void LogDebug(const char* sMsg, ...)
+void LogDebug(char const* sMsg, ...)
 {
   if(g_Verbosity < 20)
     return;
@@ -134,9 +134,9 @@ void OpenOutput(std::ofstream& fp, std::string const& filename, bool binary)
 const std::string VersionToStr(uint32_t const& version)
 {
   std::stringstream ss;
-  ss << std::to_string((uint8_t)(version >> 20)) << ".";
-  ss << std::to_string((uint8_t)(version >> 12)) << ".";
-  ss << std::to_string((uint8_t)(version));
+  ss << std::to_string(static_cast<uint8_t>(version >> 20)) << ".";
+  ss << std::to_string(static_cast<uint8_t>(version >> 12)) << ".";
+  ss << std::to_string(static_cast<uint8_t>(version));
 
   return ss.str();
 }

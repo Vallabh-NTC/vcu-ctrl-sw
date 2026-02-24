@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <sys/ioctl.h>
@@ -23,8 +23,8 @@ struct DmaBuffer
   struct al5_dma_info info;
   /* given to us with mmap */
   AL_VADDR vaddr;
-  size_t offset;
-  size_t mmap_offset; /* used by non-dmabuf */
+  ptrdiff_t offset;
+  ptrdiff_t mmap_offset; /* used by non-dmabuf */
   bool shouldCloseFd;
 };
 
@@ -46,7 +46,7 @@ static bool LinuxDma_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   struct DmaBuffer* pDmaBuffer = (struct DmaBuffer*)hBuf;
   bool bRet = true;
 
-  if(!pDmaBuffer)
+  if(pDmaBuffer == NULL)
     return true;
 
   if(pDmaBuffer->vaddr && (munmap(pDmaBuffer->vaddr - pDmaBuffer->offset, pDmaBuffer->info.size) == -1))
@@ -63,7 +63,7 @@ static bool LinuxDma_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   return bRet;
 }
 
-static AL_VADDR LinuxDma_Map(int32_t fd, size_t zSize, size_t offset)
+static AL_VADDR LinuxDma_Map(int32_t fd, size_t zSize, ptrdiff_t offset)
 {
   AL_VADDR vaddr = (AL_VADDR)mmap(0, zSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
 
@@ -81,10 +81,10 @@ static AL_VADDR LinuxDma_GetVirtualAddr(AL_TAllocator* pAllocator, AL_HANDLE hBu
   (void)pAllocator;
   struct DmaBuffer* pDmaBuffer = (struct DmaBuffer*)hBuf;
 
-  if(!pDmaBuffer)
+  if(NULL == pDmaBuffer)
     return NULL;
 
-  if(!pDmaBuffer->vaddr)
+  if(NULL == pDmaBuffer->vaddr)
     pDmaBuffer->vaddr = LinuxDma_Map(pDmaBuffer->info.fd, pDmaBuffer->info.size, pDmaBuffer->mmap_offset);
 
   return (AL_VADDR)pDmaBuffer->vaddr;
@@ -96,7 +96,7 @@ static AL_PADDR LinuxDma_GetPhysicalAddr(AL_TAllocator* pAllocator, AL_HANDLE hB
   (void)pAllocator;
   struct DmaBuffer* pDmaBuffer = (struct DmaBuffer*)hBuf;
 
-  if(!pDmaBuffer)
+  if(NULL == pDmaBuffer)
     return 0;
 
   return (AL_PADDR)pDmaBuffer->info.phy_addr;
@@ -115,7 +115,7 @@ static AL_TAllocator* create(const char* deviceFile, void const* vtable)
 {
   struct LinuxDmaCtx* pCtx = (struct LinuxDmaCtx*)calloc(1, sizeof(struct LinuxDmaCtx));
 
-  if(!pCtx)
+  if(NULL == pCtx)
     return NULL;
 
   pCtx->base.vtable = (AL_TDmaAllocLinuxVTable const*)vtable;
@@ -154,7 +154,7 @@ static bool LinuxDma_GetDmaFd(AL_TAllocator* pAllocator, struct al5_dma_info* pI
 {
   struct LinuxDmaCtx* pCtx = (struct LinuxDmaCtx*)pAllocator;
 
-  if(ioctl(pCtx->fd, GET_DMA_FD, pInfo) == -1)
+  if(ioctl(pCtx->fd, GET_DMA_FD, pInfo) < 0)
   {
     perror("GET_DMA_FD");
     return false;
@@ -166,7 +166,7 @@ static bool LinuxDma_GetBusAddrFromFd(AL_TLinuxDmaAllocator* pAllocator, struct 
 {
   struct LinuxDmaCtx* pCtx = (struct LinuxDmaCtx*)pAllocator;
 
-  if(ioctl(pCtx->fd, GET_DMA_PHY, pInfo) == -1)
+  if(ioctl(pCtx->fd, GET_DMA_PHY, pInfo) < 0)
   {
     perror("GET_DMA_PHY");
     return false;
@@ -178,7 +178,7 @@ static AL_HANDLE LinuxDma_Alloc(AL_TAllocator* pAllocator, size_t zSize)
 {
   struct DmaBuffer* pDmaBuffer = (struct DmaBuffer*)calloc(1, sizeof(*pDmaBuffer));
 
-  if(!pDmaBuffer)
+  if(NULL == pDmaBuffer)
     return NULL;
 
   size_t zMapSize = AlignToPageSize(zSize);
@@ -198,12 +198,12 @@ static AL_HANDLE LinuxDma_Alloc(AL_TAllocator* pAllocator, size_t zSize)
   return NULL;
 }
 
-static unsigned long Ceil256B(unsigned long value)
+static uintptr_t Ceil256B(uintptr_t value)
 {
   return value + 0x100 - (value % 0x100);
 }
 
-int32_t isAligned256B(AL_PADDR addr)
+bool isAligned256B(AL_PADDR addr)
 {
   return addr % 0x100 == 0;
 }
@@ -212,13 +212,13 @@ static struct DmaBuffer* OverAllocateAndAlign256B(AL_TAllocator* pAllocator, siz
 {
   struct DmaBuffer* p = (struct DmaBuffer*)LinuxDma_Alloc(pAllocator, Ceil256B(zSize));
 
-  if(!p)
+  if(NULL == p)
     return NULL;
 
   p->info.phy_addr = Ceil256B(p->info.phy_addr);
-  void* vaddr = (void*)Ceil256B((unsigned long)p->vaddr);
-  p->offset = (unsigned long)vaddr - (unsigned long)p->vaddr;
-  p->vaddr = (AL_VADDR)vaddr;
+  AL_VADDR vaddr = (AL_VADDR)Ceil256B((uintptr_t)p->vaddr);
+  p->offset = vaddr - p->vaddr;
+  p->vaddr = vaddr;
 
   return p;
 }
@@ -227,7 +227,7 @@ static AL_HANDLE LinuxDma_Alloc_256B_Aligned(AL_TAllocator* pAllocator, size_t z
 {
   struct DmaBuffer* p = (struct DmaBuffer*)LinuxDma_Alloc(pAllocator, zSize);
 
-  if(!p)
+  if(NULL == p)
     return NULL;
 
   p->shouldCloseFd = true;
@@ -237,7 +237,7 @@ static AL_HANDLE LinuxDma_Alloc_256B_Aligned(AL_TAllocator* pAllocator, size_t z
     LinuxDma_Free(pAllocator, (AL_HANDLE)p);
     p = OverAllocateAndAlign256B(pAllocator, zSize);
 
-    if(!p)
+    if(p == NULL)
       return NULL;
 
     p->shouldCloseFd = true;
@@ -280,7 +280,7 @@ static AL_HANDLE LinuxDma_ImportFromFd(AL_TLinuxDmaAllocator* pAllocator, int32_
 {
   struct DmaBuffer* pDmaBuffer = (struct DmaBuffer*)calloc(1, sizeof(*pDmaBuffer));
 
-  if(!pDmaBuffer)
+  if(pDmaBuffer == NULL)
     return NULL;
 
   pDmaBuffer->info.fd = fd;
@@ -323,4 +323,3 @@ AL_TAllocator* AL_DmaAlloc_Create(const char* deviceFile)
 {
   return create(deviceFile, &DmaAllocLinuxVtable);
 }
-

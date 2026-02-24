@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -105,7 +105,7 @@ static void InitNonVclBuf(AL_TDecCtx* pCtx)
 {
   // The anti emulation works on chunks of ANTI_EMUL_GRANULARITY size so we need
   // the size to be aligned to that granularity.
-  uint32_t uLengthNAL = AL_RoundUp(GetNonVclSize(&pCtx->Stream), ANTI_EMUL_GRANULARITY);
+  uint32_t uLengthNAL = AL_RoundUp(GetNonVclSize(pCtx->pStream), ANTI_EMUL_GRANULARITY);
 
   if(uLengthNAL > pCtx->BufNoAE.tMD.uSize) /* should occurs only on long SEI message */
   {
@@ -167,7 +167,7 @@ bool SkipNal(void)
 /*****************************************************************************/
 AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t iBufNoAESize)
 {
-  AL_TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = pCtx->pStream;
   AL_TRbspParser rp;
   InitRbspParser(pBufStream, pBufNoAE, iBufNoAESize, true, &rp);
   return rp;
@@ -183,7 +183,7 @@ AL_TRbspParser getParserOnNonVclNalInternalBuf(AL_TDecCtx* pCtx)
 /*****************************************************************************/
 AL_TRbspParser getParserOnNonVclObu(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t iBufNoAESize)
 {
-  AL_TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = pCtx->pStream;
   AL_TRbspParser rp;
   InitRbspParser(pBufStream, pBufNoAE, iBufNoAESize, false, &rp);
   return rp;

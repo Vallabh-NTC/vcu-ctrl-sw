@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 #include <array>
+#include <vector>
 #include "lib_app/utils.hpp"
 #include "IpDeviceCommon.hpp"
 
@@ -38,18 +39,16 @@ public:
 
 private:
   std::set<std::string> const m_tDevices;
-  std::string m_tSelectedDevice;
+  std::vector<std::string> m_tSelectedDevices;
   AL_EDeviceType m_eDeviceType;
   AL_IDecScheduler* m_pScheduler = nullptr;
   std::shared_ptr<AL_TAllocator> m_pAllocator = nullptr;
   AL_ITimer* m_pTimer = nullptr;
   std::set<std::string> m_FailedDevices;
-  int32_t m_nDevices = 0;
-  std::array<std::string, 4> m_SelectedDevices;
   bool m_bSelectDeviceWithLowestAvailableResources;
-  int32_t m_numDevices;
+  uint32_t m_numDevices;
 
-  void ConfigureMcu(AL_TDriver* driver, bool useProxy);
+  void ConfigureMcu(AL_ICommunication* driver, bool useProxy);
   std::string SelectMcuDevice(std::set<std::string> const& tDevices);
 };
 

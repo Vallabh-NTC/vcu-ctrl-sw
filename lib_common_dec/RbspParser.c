@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "RbspParser.h"
@@ -236,9 +236,9 @@ bool simple_byte_alignment(AL_TRbspParser* pRP, uint8_t expected_bit)
 /*****************************************************************************/
 bool byte_alignment(AL_TRbspParser* pRP)
 {
-  uint8_t bit_equal_to_one = u(pRP, 1);
+  uint8_t bit_equal_to_one = u(pRP, 1); /* returns UINT8_MAX if we run out of data, so exit*/
 
-  if(!bit_equal_to_one)
+  if((bit_equal_to_one != 1) || (bit_equal_to_one == UINT8_MAX))
     return false;
 
   return simple_byte_alignment(pRP, 0);
@@ -313,7 +313,7 @@ uint8_t* get_raw_data(AL_TRbspParser* pRP)
 uint8_t get_next_bit(AL_TRbspParser* pRP)
 {
   if(pRP->iTrailingBitOneIndex < pRP->iCurrentBitIndex + 1 && !fetch_data(pRP))
-    return -1;
+    return UINT8_MAX;
 
   int32_t bit_offset = (int)(pRP->iCurrentBitIndex & 0x07);
   uint8_t bit;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -14,6 +14,7 @@
 
 #include "lib_common/SliceConsts.h"
 #include "lib_common/Nuts.h"
+#include "lib_common/Index.h"
 #include "lib_common/Utils.h"
 
 #include "lib_common_dec/DecBuffersInternal.h"
@@ -22,7 +23,7 @@
 
 #include "lib_common/AvcHeaders.h"
 
-#define IS_NODE_VALID(tNodeID) ((tNodeID) != AL_BAD_INDEX)
+#define IS_NODE_VALID(tNodeID) (AL_IS_VALID_INDEX(tNodeID))
 
 /*****************************************************************************
    \brief Picture status enum
@@ -59,14 +60,14 @@ typedef struct
   AL_TIndex tMvID; /*!< Index of the MotionVector buffer associated with this node */
   AL_TIndex tPicID;
 
-  AL_TIndex tPrevPOCNodeID; /*!< Index of the previous node in POC order  */
-  AL_TIndex tNextPOCNodeID; /*!< Index of the   next   node in POC order  */
+  AL_TIndex tPrevPOCNodeID; /*!< Index of the previous node in POC order */
+  AL_TIndex tNextPOCNodeID; /*!< Index of the next node in POC order */
 
-  AL_TIndex tPrevPocLsbNodeID; /*!< Index of the previous node in poc_lsb order  */
-  AL_TIndex tNextPocLsbNodeID; /*!< Index of the   next   node in poc_lsb order  */
+  AL_TIndex tPrevPocLsbNodeID; /*!< Index of the previous node in poc_lsb order */
+  AL_TIndex tNextPocLsbNodeID; /*!< Index of the next node in poc_lsb order */
 
-  AL_TIndex tPrevDecOrderNodeID; /*!< Index of the previous node in Decoding order  */
-  AL_TIndex tNextDecOrderNodeID; /*!< Index of the   next   node in Decoding order  */
+  AL_TIndex tPrevDecOrderNodeID; /*!< Index of the previous node in Decoding order */
+  AL_TIndex tNextDecOrderNodeID; /*!< Index of the next node in Decoding order */
 
   /* info on the reference picture */
   int32_t iFramePOC; /*!< POC of this reference node */
@@ -74,12 +75,12 @@ typedef struct
   int32_t slice_pic_order_cnt_lsb;
   AL_EMarkingRef eMarkingFlag; /*!< status of this reference node */
 
-  int32_t iFrame_num;
-  int32_t iSlice_frame_num;
-  int32_t iFrame_num_wrap;
-  int32_t iLong_term_frame_idx;
-  int32_t iLong_term_pic_num;
-  int32_t iPic_num;
+  int32_t iFrameNumber;
+  int32_t iSliceFrameNumber;
+  int32_t iFrameNumberWrap;
+  int32_t iLongTermFrameIdx;
+  int32_t iLongTermPicNum;
+  int32_t iPicNum;
 
   bool bPicOutputFlag; /*!< whether picture must be displayed or not */
   bool bIsReset; /*!< Node has been reset or not */
@@ -173,23 +174,24 @@ typedef struct
 
   uint8_t uNumRef; /*!< Maximum number of reference managed by the DPB */
 
-  AL_TIndex tHeadPOCNodeID;      /*!< Index of the first node in POC order     */
+  AL_TIndex tHeadPOCNodeID;      /*!< Index of the first node in POC order */
   AL_TIndex tHeadPocLsbNodeID;   /*!< Index of the first node in poc_lsb order */
-  AL_TIndex tLastPOCNodeID;      /*!< Index of the last node in POC order      */
+  AL_TIndex tLastPOCNodeID;      /*!< Index of the last node in POC order */
   AL_TIndex tHeadDecOrderNodeID; /*!< Index of the first node in arrival order */
 
   /*decoding members*/
   AL_TIndex tCurRefNodeID;
-  uint8_t uCountRef;            /*!< Number of used node in the reference list */
-  uint8_t uCountPic;            /*!< Number of used node in the reference list */
-  int32_t MaxLongTermFrameIdx;  /*!< Number of the max long term index used in picture marking process */
+  uint8_t uCountRef; /*!< Number of used node in the reference list */
+  uint8_t uCountPic; /*!< Number of used node in the reference list */
+  int32_t iMaxLongTermFrameIdx; /*!< Number of the max long term index used in picture marking process */
   bool bLastHasMMCO5;
   AL_EDpbMode eMode; /*!< Possible DPB mode */
 
   /*info needed for POC calculation*/
   int32_t iCurFramePOC;
-  int32_t iPrevPocMSB;
   int32_t iPrevPocLSB;
+  int32_t iPrevPocMSB;
+  int32_t iPrevPOC;
   AL_64S iPrevFrameNumOffset;
   AL_64S iPrevFrameNum;
   int32_t iTopFieldOrderCnt;
@@ -403,9 +405,9 @@ AL_TIndex AL_Dpb_GetNextPOC(AL_TDpb const* pDpb, AL_TIndex tNodeID);
    \brief This function retrieves the bPicOutputFlag of a specific picture
    \param[in] pDpb Pointer to a DPB context object
    \param[in] tNodeID Picture identifier in the DPB Node
-   \return return the picture's output flag
+   \return return true if the picture's output flag is set, false otherwise
 *****************************************************************************/
-uint8_t AL_Dpb_GetOutputFlag(AL_TDpb const* pDpb, AL_TIndex tNodeID);
+bool AL_Dpb_GetOutputFlag(AL_TDpb const* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief This function retrieves the reference status of a specific picture
@@ -417,15 +419,15 @@ uint8_t AL_Dpb_GetMarkingFlag(AL_TDpb const* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief This function set the reference status of a specific picture
-   \param[in,out] pDpb         Pointer to a DPB context object
-   \param[in]     tNodeID        Picture identifier in the DPB Node
-   \param[in]     eMarkingFlag Reference status to apply to the picture
+   \param[in,out] pDpb Pointer to a DPB context object
+   \param[in] tNodeID Picture identifier in the DPB Node
+   \param[in] eMarkingFlag Reference status to apply to the picture
 *****************************************************************************/
 void AL_Dpb_SetMarkingFlag(AL_TDpb* pDpb, AL_TIndex tNodeID, AL_EMarkingRef eMarkingFlag);
 
 /*****************************************************************************
    \brief This function gets the Pic ID of a specific picture in the DPB Nodes
-   \param[in] pDpb  Pointer to a DPB context object
+   \param[in] pDpb Pointer to a DPB context object
    \param[in] tNodeID Picture identifier in the DPB Node
    \return return the picture's PicID
 *****************************************************************************/
@@ -433,7 +435,7 @@ AL_TIndex AL_Dpb_GetPicID_FromNode(AL_TDpb const* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief This function gets the frame ID of a specific picture in the DPB Nodes
-   \param[in] pDpb  Pointer to a DPB context object
+   \param[in] pDpb Pointer to a DPB context object
    \param[in] tNodeID Picture identifier in the DPB Node
    \return return the picture's FrmID
 *****************************************************************************/
@@ -449,24 +451,25 @@ AL_TIndex AL_Dpb_GetFrmID_FromNode(AL_TDpb const* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief Increment the latency of a specific pcture when it follows the current picture in output order
-   \param[in,out] pDpb         Pointer to a DPB context object
-   \param[in]     tNodeID        Picture identifier in the DPB Node
+   \param[in,out] pDpb Pointer to a DPB context object
+   \param[in] tNodeID Picture identifier in the DPB Node
 *****************************************************************************/
 void AL_Dpb_IncrementPicLatency(AL_TDpb* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief Adds the specified picture in the display list
-   \param[in,out] pDpb  Pointer to a DPB context object
-   \param[in]     tNodeID Index of the node to remove
+   \param[in,out] pDpb Pointer to a DPB context object
+   \param[in] tNodeID Index of the node to remove
    \return The Frame buffer index of the removed node
 *****************************************************************************/
 void AL_Dpb_Display(AL_TDpb* pDpb, AL_TIndex tNodeID);
 
 /*****************************************************************************
    \brief Remove the specified node from the reference buffer pool
-   \param[in,out] pDpb   Pointer to a DPB context object
-   \param[in]     tNodeID  Index of the node to remove
+   \param[in,out] pDpb Pointer to a DPB context object
+   \param[in] tNodeID Index of the node to remove
    \return return the frame buffer identifier of the deleted picture
 *****************************************************************************/
 AL_TIndex AL_Dpb_Remove(AL_TDpb* pDpb, AL_TIndex tNodeID);
+
 /*!@}*/

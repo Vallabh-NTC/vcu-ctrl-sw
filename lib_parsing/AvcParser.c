@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "AvcParser.h"
 #include "lib_common/Utils.h"
 #include "lib_common/SeiInternal.h"
+#include "lib_common_dec/ParseResult.h"
 #include "lib_common_dec/RbspParser.h"
 #include "SeiParser.h"
 
@@ -87,7 +88,7 @@ static void avc_scaling_list_data(uint8_t* pScalingList, AL_TRbspParser* pRP, in
 }
 
 /*****************************************************************************/
-AL_PARSE_RESULT AL_AVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* pPpsId)
+AL_EParseResult AL_AVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* pPpsId)
 {
   skipAllZerosAndTheNextByte(pRP);
   u(pRP, 8); // Skip NUT
@@ -257,7 +258,7 @@ AL_PARSE_RESULT AL_AVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* p
 
   COMPLY(rbsp_trailing_bits(pRP));
 
-  return AL_OK;
+  return AL_PARSE_OK;
 }
 
 /*****************************************************************************/
@@ -429,7 +430,7 @@ static bool avc_vui_parameters(AL_TVuiParam* pVuiParam, AL_TRbspParser* pRP)
 }
 
 /*****************************************************************************/
-AL_PARSE_RESULT AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS)
+AL_EParseResult AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS)
 {
   skipAllZerosAndTheNextByte(pRP);
   u(pRP, 8); // Skip NUT
@@ -453,7 +454,7 @@ AL_PARSE_RESULT AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS)
   if(!isProfileSupported(pSPS->profile_idc) && !pSPS->constraint_set1_flag)
   {
     Rtos_Log(AL_LOG_ERROR, "Unsupported profile\n");
-    return AL_UNSUPPORTED;
+    return AL_PARSE_UNSUPPORTED;
   }
 
   if(pSPS->profile_idc == 44 || pSPS->profile_idc == 83 ||
@@ -548,7 +549,7 @@ AL_PARSE_RESULT AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS)
     if(pSPS->mb_adaptive_frame_field_flag)
     {
       Rtos_Log(AL_LOG_ERROR, "MBAFF is not supported\n");
-      return AL_UNSUPPORTED;
+      return AL_PARSE_UNSUPPORTED;
     }
   }
 
@@ -571,23 +572,23 @@ AL_PARSE_RESULT AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS)
   // validate current SPS
   pSPS->bConceal = false;
 
-  return AL_OK;
+  return AL_PARSE_OK;
 }
 
 /*****************************************************************************/
-static bool SeiBufferingPeriod(AL_TRbspParser* pRP, AL_TAvcSps* pSpsTable, AL_TAvcBufPeriod* pBufPeriod, AL_TAvcSps** pActiveSps)
+static AL_ESeiParseResult SeiBufferingPeriod(AL_TRbspParser* pRP, AL_TAvcSps* pSpsTable, AL_TAvcBufPeriod* pBufPeriod, AL_TAvcSps** pActiveSps)
 {
   AL_TAvcSps* pSPS = NULL;
 
   pBufPeriod->seq_parameter_set_id = ue(pRP);
 
   if(pBufPeriod->seq_parameter_set_id >= AL_AVC_MAX_SPS)
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   pSPS = &pSpsTable[pBufPeriod->seq_parameter_set_id];
 
   if(pSPS->bConceal)
-    return false;
+    return AL_SEI_PARSE_RESULT_PARSING_ERROR;
 
   *pActiveSps = pSPS;
 
@@ -613,32 +614,29 @@ static bool SeiBufferingPeriod(AL_TRbspParser* pRP, AL_TAvcSps* pSpsTable, AL_TA
     }
   }
 
-  return true;
+  return AL_SEI_PARSE_RESULT_PARSED;
 }
 
 /*****************************************************************************/
-static bool ParseSeiPayload(SeiParserParam* p, AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, int32_t iPayloadSize, bool* bCanSendToUser, bool* bParsed)
+static AL_ESeiParseResult ParseAvcSpecificSeis(AL_TRbspParser* pRP, AL_ESeiPayloadType ePayloadType, uint32_t uPayloadSize, AL_TAup* pOutputAup, bool* pCanSendToUser)
 {
-  (void)iPayloadSize;
-  bool bParsingOk = true;
-  *bCanSendToUser = true;
-  *bParsed = true;
-  AL_TAvcAup* aup = &p->pIAup->avcAup;
+  (void)uPayloadSize;
+
+  AL_ESeiParseResult eParseResult = AL_SEI_PARSE_RESULT_UNKNOWN_SEI;
+  *pCanSendToUser = true;
   switch(ePayloadType)
   {
   case SEI_PTYPE_BUFFERING_PERIOD:
   {
     AL_TAvcBufPeriod tBufferingPeriod;
-    bParsingOk = SeiBufferingPeriod(pRP, aup->pSPS, &tBufferingPeriod, &aup->pActiveSPS);
+    eParseResult = SeiBufferingPeriod(pRP, pOutputAup->avcAup.pSPS, &tBufferingPeriod, &pOutputAup->avcAup.pActiveSPS);
     break;
   }
   default:
-    *bCanSendToUser = false;
-    *bParsed = false;
     break;
   }
 
-  return bParsingOk;
+  return eParseResult;
 }
 
 /*****************************************************************************/
@@ -648,12 +646,13 @@ bool AL_AVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB_
 
   u(pRP, 8); // Skip NUT
 
-  SeiParserParam tSeiParserParam = { pIAup, bIsPrefix, cb, pMeta };
-  SeiParserCB tSeiParserCb = { ParseSeiPayload, &tSeiParserParam };
+  AL_TSeiParserCtx tParserCtx;
+  AL_SeiParser_Init(&tParserCtx, pIAup, pMeta, cb);
+  AL_SeiParser_AddCustomSeiParsing(&tParserCtx, ParseAvcSpecificSeis);
 
   do
   {
-    if(!ParseSeiHeader(pRP, &tSeiParserCb))
+    if(!AL_SeiParser_Parse(&tParserCtx, pRP, bIsPrefix))
       return false;
   }
   while(more_rbsp_data(pRP));
@@ -661,6 +660,52 @@ bool AL_AVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB_
   rbsp_trailing_bits(pRP);
 
   return true;
+}
+
+/*****************************************************************************/
+static AL_EParseResult AL_AVC_ParseHdrSvcExt(AL_TRbspParser* pRP, AL_TAvcHdrSvcExt* pHdrSvcExt)
+{
+  pHdrSvcExt->idr_flag = u(pRP, 1);
+  pHdrSvcExt->priority_id = u(pRP, 6);
+  pHdrSvcExt->no_inter_layer_pred_flag = u(pRP, 1);
+  pHdrSvcExt->dependency_id = u(pRP, 3);
+  pHdrSvcExt->quality_id = u(pRP, 4);
+  pHdrSvcExt->temporal_id = u(pRP, 3);
+  pHdrSvcExt->use_ref_base_pic_flag = u(pRP, 1);
+  pHdrSvcExt->discardable_flag = u(pRP, 1);
+  pHdrSvcExt->output_flag = u(pRP, 1);
+  COMPLY(3 == u(pRP, 2)); // reserved_three_2bits
+
+  return AL_PARSE_OK;
+}
+
+/*****************************************************************************/
+AL_EParseResult AL_AVC_ParseNal(AL_TAup* pIAup, AL_TRbspParser* pRP, AL_ENut eNut)
+{
+  AL_EParseResult eRes = AL_PARSE_UNSUPPORTED;
+  switch(eNut)
+  {
+  case AL_AVC_NUT_PREFIX:
+  case AL_AVC_NUT_EXT:
+  {
+    skipAllZerosAndTheNextByte(pRP);
+    u(pRP, 8); // Skip NUT
+
+    if(u(pRP, 1)) // svc_extension_flag
+    {
+      AL_TAvcHdrSvcExt tHdrSvcExt;
+      eRes = AL_AVC_ParseHdrSvcExt(pRP, &tHdrSvcExt);
+
+      if(eRes == AL_PARSE_OK)
+        pIAup->avcAup.uCurTemporalID = tHdrSvcExt.temporal_id;
+    }
+  } break;
+
+  default:
+    break;
+  }
+
+  return eRes;
 }
 
 /*****************************************************************************/

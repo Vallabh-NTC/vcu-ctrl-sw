@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -52,7 +52,7 @@ static std::string PictTypeToString(AL_ESliceType type)
   return m.at(type);
 }
 
-static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
+static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, AL_64S iFrameCountSent)
 {
   auto iQPTableDepth = 0;
 
@@ -98,7 +98,7 @@ public:
     initLayer(qpLayerInfo, iLayerID);
   }
 
-  AL_TBuffer* getBuffer(int32_t frameNum)
+  AL_TBuffer* getBuffer(AL_64S frameNum)
   {
     return getBufferP(frameNum, 0);
   }
@@ -118,7 +118,7 @@ private:
     mQPLayerRoiCtxs[iLayerID] = AL_RoiMngr_Create(tChParam.uEncWidth, tChParam.uEncHeight, tChParam.eProfile, tChParam.uLog2MaxCuSize, AL_ROI_QUALITY_MEDIUM, AL_ROI_QUALITY_ORDER);
   }
 
-  AL_TBuffer* getBufferP(int32_t frameNum, int32_t iLayerID)
+  AL_TBuffer* getBufferP(AL_64S frameNum, int32_t iLayerID)
   {
     if(!isExternQpTable || mQPLayerInfos.find(iLayerID) == mQPLayerInfos.end())
       return nullptr;
@@ -355,11 +355,11 @@ struct EncoderSink : IEncoderSink
   bool shouldAddDummySei = false;
 
 private:
-  int32_t iPendingStreamCnt;
-  int32_t m_input_picCount[MAX_NUM_LAYER] {};
-  int32_t m_pictureType = -1;
-  uint64_t m_StartTime = 0;
-  uint64_t m_EndTime = 0;
+  AL_64S iPendingStreamCnt;
+  AL_64S m_input_picCount[MAX_NUM_LAYER] {};
+  AL_64S m_pictureType = -1;
+  AL_64U m_StartTime = 0;
+  AL_64U m_EndTime = 0;
   safe_ifstream CmdFile;
   CEncCmdMngr EncCmd;
   ConfigFile const& m_cfg;
@@ -554,11 +554,6 @@ private:
         TFourCC tFileRecFourCC = m_cfg.RecFourCC;
         AL_Buffer_InvalidateMemory(buf);
 
-        TFourCC fourCC = AL_PixMapBuffer_GetFourCC(buf);
-
-        if(AL_IsCompressed(fourCC))
-          RecOutput[iRecId]->ProcessFrame(buf);
-        else
         {
           if(AL_PixMapBuffer_GetFourCC(buf) != tFileRecFourCC)
           {

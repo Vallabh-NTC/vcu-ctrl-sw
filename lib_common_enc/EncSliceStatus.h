@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -35,4 +35,5 @@ typedef struct AL_TSliceStatus
   int32_t iEstimNumBytes; /*!< Estimated Number of bytes in the stream (AVC multi-core only) */
 
   uint32_t SyntaxElements;
+
 }AL_TEncSliceStatus;

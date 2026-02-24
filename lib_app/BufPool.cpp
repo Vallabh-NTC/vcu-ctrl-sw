@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <stdexcept>
@@ -19,27 +19,27 @@ static void Fifo_Commit(App_Fifo* pFifo);
 static size_t Fifo_GetMaxElements(App_Fifo* pFifo);
 
 /****************************************************************************/
-static void AL_sBufPool_QueueBuf(AL_TBufPool* pBufPool, AL_TBuffer* pBuf)
+static void AL_sBufPool_QueueBuf(AL_TAppBufPool* pBufPool, AL_TBuffer* pBuf)
 {
   Fifo_Queue(&pBufPool->fifo, pBuf, AL_WAIT_FOREVER);
 }
 
 static void AL_sBufPool_FreeBufInPool(AL_TBuffer* pBuf)
 {
-  auto pBufPool = (AL_TBufPool*)AL_Buffer_GetUserData(pBuf);
+  auto pBufPool = (AL_TAppBufPool*)AL_Buffer_GetUserData(pBuf);
   bool bBufferQueued = Fifo_Queue(&pBufPool->fifo, pBuf, AL_WAIT_FOREVER);
 
   if(bBufferQueued && pBufPool->tAvailableBufCB.func != NULL)
     pBufPool->tAvailableBufCB.func(pBufPool->tAvailableBufCB.userParam);
 }
 
-static AL_TBuffer* AL_sBufPool_CreateBuffer(AL_TBufPoolConfig& config, AL_TAllocator* pAllocator)
+static AL_TBuffer* AL_sBufPool_CreateBuffer(AL_TAppBufPoolConfig& config, AL_TAllocator* pAllocator)
 {
   return config.tCreateBufCB.func(config.tCreateBufCB.userParam, pAllocator, AL_sBufPool_FreeBufInPool);
 }
 
 /****************************************************************************/
-static bool AL_sBufPool_AddBuf(AL_TBufPool* pBufPool, AL_TBuffer* pBuf)
+static bool AL_sBufPool_AddBuf(AL_TAppBufPool* pBufPool, AL_TBuffer* pBuf)
 {
   if(!pBuf)
     return false;
@@ -54,14 +54,14 @@ static bool AL_sBufPool_AddBuf(AL_TBufPool* pBufPool, AL_TBuffer* pBuf)
 }
 
 /****************************************************************************/
-static bool AL_sBufPool_AddAllocBuf(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig)
+static bool AL_sBufPool_AddAllocBuf(AL_TAppBufPool* pBufPool, AL_TAppBufPoolConfig* pConfig)
 {
   AL_TBuffer* pBuf = AL_sBufPool_CreateBuffer(*pConfig, pBufPool->pAllocator);
   return AL_sBufPool_AddBuf(pBufPool, pBuf);
 }
 
 /****************************************************************************/
-static bool AL_sBufPool_InitStructure(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig)
+static bool AL_sBufPool_InitStructure(AL_TAppBufPool* pBufPool, AL_TAppBufPoolConfig* pConfig)
 {
   size_t zMemPoolSize = 0;
 
@@ -84,7 +84,7 @@ static bool AL_sBufPool_InitStructure(AL_TBufPool* pBufPool, AL_TBufPoolConfig* 
 
   if(!pBufPool->pPool)
   {
-    AL_BufPool_Deinit(pBufPool);
+    AL_AppBufPool_Deinit(pBufPool);
     return false;
   }
 
@@ -95,7 +95,7 @@ static bool AL_sBufPool_InitStructure(AL_TBufPool* pBufPool, AL_TBufPoolConfig* 
 }
 
 /****************************************************************************/
-bool AL_BufPool_Init(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig)
+bool AL_AppBufPool_Init(AL_TAppBufPool* pBufPool, AL_TAppBufPoolConfig* pConfig)
 {
   if(!AL_sBufPool_InitStructure(pBufPool, pConfig))
     return false;
@@ -105,7 +105,7 @@ bool AL_BufPool_Init(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig)
   {
     if(!AL_sBufPool_AddAllocBuf(pBufPool, pConfig))
     {
-      AL_BufPool_Deinit(pBufPool);
+      AL_AppBufPool_Deinit(pBufPool);
       return false;
     }
   }
@@ -114,7 +114,7 @@ bool AL_BufPool_Init(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig)
 }
 
 /****************************************************************************/
-void AL_BufPool_Deinit(AL_TBufPool* pBufPool)
+void AL_AppBufPool_Deinit(AL_TAppBufPool* pBufPool)
 {
   for(uint32_t u = 0; u < pBufPool->uNumBuf; ++u)
   {
@@ -129,13 +129,13 @@ void AL_BufPool_Deinit(AL_TBufPool* pBufPool)
 }
 
 /****************************************************************************/
-void AL_BufPool_RegisterAvailableBufCallback(AL_TBufPool* pBufPool, AL_TBufPoolAvailableBufCB* pCB)
+void AL_AppBufPool_RegisterAvailableBufCallback(AL_TAppBufPool* pBufPool, AL_TAppBufPoolAvailableBufCB* pCB)
 {
   pBufPool->tAvailableBufCB = *pCB;
 }
 
 /****************************************************************************/
-AL_TBuffer* AL_BufPool_GetBuffer(AL_TBufPool* pBufPool, AL_EBufMode eMode)
+AL_TBuffer* AL_AppBufPool_GetBuffer(AL_TAppBufPool* pBufPool, AL_EBufMode eMode)
 {
   uint32_t Wait = AL_GetWaitMode(eMode);
 
@@ -149,7 +149,7 @@ AL_TBuffer* AL_BufPool_GetBuffer(AL_TBufPool* pBufPool, AL_EBufMode eMode)
 }
 
 /****************************************************************************/
-bool AL_BufPool_AddMetaData(AL_TBufPool* pBufPool, AL_TMetaData* pMetaData)
+bool AL_AppBufPool_AddMetaData(AL_TAppBufPool* pBufPool, AL_TMetaData* pMetaData)
 {
   AL_TMetaData* pMeta;
   AL_TBuffer* pBuf;
@@ -167,13 +167,13 @@ bool AL_BufPool_AddMetaData(AL_TBufPool* pBufPool, AL_TMetaData* pMetaData)
 }
 
 /****************************************************************************/
-void AL_BufPool_Decommit(AL_TBufPool* pBufPool)
+void AL_AppBufPool_Decommit(AL_TAppBufPool* pBufPool)
 {
   Fifo_Decommit(&pBufPool->fifo);
 }
 
 /****************************************************************************/
-void AL_BufPool_Commit(AL_TBufPool* pBufPool)
+void AL_AppBufPool_Commit(AL_TAppBufPool* pBufPool)
 {
   Fifo_Commit(&pBufPool->fifo);
 }
@@ -320,7 +320,7 @@ uint32_t AL_GetWaitMode(AL_EBufMode eMode)
 BaseBufPool::~BaseBufPool(void)
 {
   if(isInit)
-    AL_BufPool_Deinit(&m_pool);
+    AL_AppBufPool_Deinit(&m_pool);
 }
 
 bool BaseBufPool::IsInit(void)
@@ -330,31 +330,29 @@ bool BaseBufPool::IsInit(void)
 
 bool BaseBufPool::Init(AL_TAllocator* pAllocator, uint32_t uNumBuf)
 {
-  AL_TBufPoolCreateBufCB tCreateBufCB =
-  {
+  AL_TAppBufPoolCreateBufCB tCreateBufCB {
     sCreateBuf,
     this
   };
 
-  AL_TBufPoolConfig tConfig =
-  {
+  AL_TAppBufPoolConfig tConfig {
     pAllocator,
     uNumBuf,
     tCreateBufCB
   };
 
-  isInit = AL_BufPool_Init(&m_pool, &tConfig);
+  isInit = AL_AppBufPool_Init(&m_pool, &tConfig);
   return isInit;
 }
 
-void BaseBufPool::RegisterAvailableBufCallback(AL_TBufPoolAvailableBufCB* pCB)
+void BaseBufPool::RegisterAvailableBufCallback(AL_TAppBufPoolAvailableBufCB* pCB)
 {
-  AL_BufPool_RegisterAvailableBufCallback(&m_pool, pCB);
+  AL_AppBufPool_RegisterAvailableBufCallback(&m_pool, pCB);
 }
 
 bool BaseBufPool::AddMetaData(AL_TMetaData* pMeta)
 {
-  return AL_BufPool_AddMetaData(&m_pool, pMeta);
+  return AL_AppBufPool_AddMetaData(&m_pool, pMeta);
 }
 
 AL_TBuffer* BaseBufPool::GetBuffer(AL_EBufMode mode)
@@ -362,7 +360,7 @@ AL_TBuffer* BaseBufPool::GetBuffer(AL_EBufMode mode)
   if(!isInit)
     return nullptr;
 
-  AL_TBuffer* pBuf = AL_BufPool_GetBuffer(&m_pool, mode);
+  AL_TBuffer* pBuf = AL_AppBufPool_GetBuffer(&m_pool, mode);
 
   if(mode == AL_EBufMode::AL_BUF_MODE_BLOCK && pBuf == nullptr)
     throw bufpool_decommited_error();
@@ -386,13 +384,13 @@ std::shared_ptr<AL_TBuffer> BaseBufPool::GetSharedBuffer(AL_EBufMode mode)
 void BaseBufPool::Decommit(void)
 {
   Rtos_Assert(isInit);
-  AL_BufPool_Decommit(&m_pool);
+  AL_AppBufPool_Decommit(&m_pool);
 }
 
 void BaseBufPool::Commit(void)
 {
   Rtos_Assert(isInit);
-  AL_BufPool_Commit(&m_pool);
+  AL_AppBufPool_Commit(&m_pool);
 }
 
 AL_TBuffer* BaseBufPool::sCreateBuf(void* pUserParam, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCntCallBack)

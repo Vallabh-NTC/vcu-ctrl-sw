@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
    \param[in]  pSclLst Pointer to  Scaling list to dump
    \param[out] pBufs   Pointer to buffers to initialize
 *****************************************************************************/
-void AL_HEVC_InitHWFrameBuffers(AL_TScl const* pSclLst, AL_TDecBuffers* pBufs);
+void AL_HEVC_InitHWFrameBuffers(AL_TScalingList const* pSclLst, AL_TDecBuffers* pBufs);
 
 /*****************************************************************************
    \brief Initialize buffers required to decode the current slice

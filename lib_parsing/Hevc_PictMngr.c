@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -9,6 +9,7 @@
 
 #include "Hevc_PictMngr.h"
 #include "lib_common/HevcUtils.h"
+#include "lib_common/Index.h"
 #include "lib_parsing/HevcParser.h"
 
 /*****************************************************************************/
@@ -318,7 +319,7 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
   {
     0, 0
   };
-  uint8_t NumPocTotalCurr = pSlice->NumPocTotalCurr;
+  uint8_t NumPicTotalCurr = pSlice->NumPicTotalCurr;
 
   // reset reference picture list
   for(uRef = 0; uRef < AL_MAX_REF; ++uRef)
@@ -329,12 +330,13 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
 
   if(pSlice->slice_type != AL_SLICE_I)
   {
-    AL_TIndex tNodeList[16];
-    uint8_t NumRpsCurrTempList = (NumPocTotalCurr > pSlice->num_ref_idx_l0_active_minus1 + 1) ? NumPocTotalCurr : pSlice->num_ref_idx_l0_active_minus1 + 1;
+    AL_TIndex tNodeList[16] = { 0 };
+    uint8_t NumRpsCurrTempList = (NumPicTotalCurr > pSlice->num_ref_idx_l0_active_minus1 + 1) ? NumPicTotalCurr : pSlice->num_ref_idx_l0_active_minus1 + 1;
     // slice P
     uRef = 0;
 
-    if(pSlice->NumPocStCurrBefore || pSlice->NumPocStCurrAfter || pSlice->NumPocLtCurr)
+    if(pSlice->NumPocStCurrBefore || pSlice->NumPocStCurrAfter || pSlice->NumPocLtCurr
+       )
     {
       while(uRef < NumRpsCurrTempList)
       {
@@ -346,6 +348,7 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
 
         for(uint8_t i = 0; i < pSlice->NumPocLtCurr && uRef < NumRpsCurrTempList; ++uRef, ++i)
           tNodeList[uRef] = pDpb->HevcRef.RefPicSetLtCurr[i];
+
       }
 
       for(uRef = 0; uRef <= pSlice->num_ref_idx_l0_active_minus1; ++uRef)
@@ -353,10 +356,10 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
         AL_TIndex tNodeID = pSlice->ref_pic_modif.ref_pic_list_modification_flag_l0 ? tNodeList[pSlice->ref_pic_modif.list_entry_l0[uRef]] :
                             tNodeList[uRef];
 
-        if((!IS_NODE_VALID(tNodeID)) || (pDpb->Nodes[tNodeID].tFrameID == AL_BAD_INDEX))
+        if((!IS_NODE_VALID(tNodeID)) || (!AL_IS_VALID_INDEX(pDpb->Nodes[tNodeID].tFrameID)))
           tNodeID = AL_Dpb_GetHeadPOC(pDpb);
 
-        if((!IS_NODE_VALID(tNodeID)) || (pDpb->Nodes[tNodeID].tFrameID == AL_BAD_INDEX))
+        if((!IS_NODE_VALID(tNodeID)) || (!AL_IS_VALID_INDEX(pDpb->Nodes[tNodeID].tFrameID)))
           return false;
 
         (*pListRef)[0][uRef].tNodeID = tNodeID;
@@ -366,10 +369,11 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
     // slice B
     if(pSlice->slice_type == AL_SLICE_B)
     {
-      NumRpsCurrTempList = (NumPocTotalCurr > pSlice->num_ref_idx_l1_active_minus1 + 1) ? NumPocTotalCurr : pSlice->num_ref_idx_l1_active_minus1 + 1;
+      NumRpsCurrTempList = (NumPicTotalCurr > pSlice->num_ref_idx_l1_active_minus1 + 1) ? NumPicTotalCurr : pSlice->num_ref_idx_l1_active_minus1 + 1;
       uRef = 0;
 
-      if(pSlice->NumPocStCurrAfter || pSlice->NumPocStCurrBefore || pSlice->NumPocLtCurr)
+      if(pSlice->NumPocStCurrAfter || pSlice->NumPocStCurrBefore || pSlice->NumPocLtCurr
+         )
       {
         while(uRef < NumRpsCurrTempList)
         {
@@ -381,6 +385,7 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
 
           for(uint8_t i = 0; i < pSlice->NumPocLtCurr && uRef < NumRpsCurrTempList; ++uRef, ++i)
             tNodeList[uRef] = pDpb->HevcRef.RefPicSetLtCurr[i];
+
         }
 
         for(uRef = 0; uRef <= pSlice->num_ref_idx_l1_active_minus1; ++uRef)
@@ -388,10 +393,10 @@ bool AL_HEVC_Dpb_BuildPictureList(AL_TDpb* pDpb, AL_THevcSliceHdr const* pSlice,
           AL_TIndex tNodeID = pSlice->ref_pic_modif.ref_pic_list_modification_flag_l1 ? tNodeList[pSlice->ref_pic_modif.list_entry_l1[uRef]] :
                               tNodeList[uRef];
 
-          if((!IS_NODE_VALID(tNodeID)) || (pDpb->Nodes[tNodeID].tFrameID == AL_BAD_INDEX))
+          if((!IS_NODE_VALID(tNodeID)) || (!AL_IS_VALID_INDEX(pDpb->Nodes[tNodeID].tFrameID)))
             tNodeID = AL_Dpb_GetHeadPOC(pDpb);
 
-          if((!IS_NODE_VALID(tNodeID)) || (pDpb->Nodes[tNodeID].tFrameID == AL_BAD_INDEX))
+          if((!IS_NODE_VALID(tNodeID)) || (!AL_IS_VALID_INDEX(pDpb->Nodes[tNodeID].tFrameID)))
             return false;
 
           (*pListRef)[1][uRef].tNodeID = tNodeID;

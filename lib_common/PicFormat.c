@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/PicFormat.h"
@@ -45,25 +45,31 @@ bool Is10bPacked(AL_ESamplePackMode eSamplePackMode)
 int32_t GetTileWidth(AL_EFbStorageMode eMode, uint8_t uBitDepth)
 {
   (void)uBitDepth;
-
-  if(eMode == AL_FB_TILE_32x4
-     )
+  switch(eMode)
+  {
+  case AL_FB_TILE_32x4:
     return 32;
 
-  if(eMode == AL_FB_TILE_64x4
-     )
+  case AL_FB_TILE_64x4:
     return 64;
 
-  return 0;
+  default:
+    return 0;
+  }
 }
 
 /*****************************************************************************/
 int32_t GetTileHeight(AL_EFbStorageMode eMode)
 {
-  if(eMode == AL_FB_TILE_32x4 || eMode == AL_FB_TILE_64x4)
+  switch(eMode)
+  {
+  case AL_FB_TILE_32x4:
+  case AL_FB_TILE_64x4:
     return 4;
 
-  return 0;
+  default:
+    return 0;
+  }
 }
 
 /*****************************************************************************/

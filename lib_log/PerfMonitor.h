@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_rtos/types.h"
-#include "lib_log/LoggerInterface.h"
+#include "lib_log/I_Logger.h"
 
 static uint8_t const PERF_VAL_X = 255;
 static uint8_t const PERF_VAL_Z = 254;

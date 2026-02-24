@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <memory>
+#include <cassert>
 
 extern "C"
 {
@@ -64,4 +65,21 @@ void BaseFrameWriter::WriteValue(std::shared_ptr<std::ostream> stream, T pVal)
 
   if(stream->fail())
     throw printf("Invalid output file");
+}
+
+inline const char* StorageModeToString(AL_EFbStorageMode eStorageMode)
+{
+  switch(eStorageMode)
+  {
+  case AL_FB_RASTER:
+    return "AL_FB_RASTER";
+  case AL_FB_TILE_32x4:
+    return "AL_FB_TILE_32x4";
+  case AL_FB_TILE_64x4:
+    return "AL_FB_TILE_64x4";
+  default:
+    assert("Invalid storage mode");
+  }
+
+  return NULL;
 }

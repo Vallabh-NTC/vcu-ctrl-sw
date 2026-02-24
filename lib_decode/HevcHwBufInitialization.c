@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "HevcHwBufInitialization.h"
@@ -6,7 +6,7 @@
 #include "lib_common_dec/DecHwScalingList.h"
 
 /*****************************************************************************/
-void AL_HEVC_InitHWFrameBuffers(AL_TScl const* pSclLst, AL_TDecBuffers* pBufs)
+void AL_HEVC_InitHWFrameBuffers(AL_TScalingList const* pSclLst, AL_TDecBuffers* pBufs)
 {
   AL_HEVC_WriteDecHwScalingList(pSclLst, pBufs->tScl.tMD.pVirtualAddr);
 }

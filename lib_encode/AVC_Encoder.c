@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "Com_Encoder.h"
+#include "Common_Encoder.h"
 #include "AVC_Sections.h"
 #include "lib_common_enc/PictureInfo.h"
 

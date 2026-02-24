@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "DecHwScalingList.h"
@@ -47,7 +47,7 @@ static const int32_t AL_AVC_DEC_SCL_ORDER_8x8[64] =
 };
 
 /******************************************************************************/
-void AL_AVC_WriteDecHwScalingList(AL_TScl const* pSclLst, AL_EChromaMode eCMode, uint8_t* pBuf)
+void AL_AVC_WriteDecHwScalingList(AL_TScalingList const* pSclLst, AL_EChromaMode eCMode, uint8_t* pBuf)
 {
   uint32_t* pBuf32 = (uint32_t*)pBuf;
 
@@ -120,7 +120,7 @@ static const int32_t AL_HEVC_DEC_SCL_ORDER_4x4[16] =
 };
 
 /******************************************************************************/
-void AL_HEVC_WriteDecHwScalingList(AL_TScl const* pSclLst, uint8_t* pBuf)
+void AL_HEVC_WriteDecHwScalingList(AL_TScalingList const* pSclLst, uint8_t* pBuf)
 {
   uint32_t* pBuf32 = (uint32_t*)pBuf;
 

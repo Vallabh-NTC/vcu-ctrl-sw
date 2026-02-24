@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -19,29 +19,29 @@ extern "C" {
 }
 
 /*****************************************************************************
-   \brief AL_TBufPoolCreateBufCB: Abstraction of buffer creation
+   \brief AL_TAppBufPoolCreateBufCB: Abstraction of buffer creation
 *****************************************************************************/
-struct AL_TBufPoolCreateBufCB
+struct AL_TAppBufPoolCreateBufCB
 {
   AL_TBuffer* (* func)(void* pUserParam, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCntCallBack);
   void* userParam;
 };
 
 /*****************************************************************************
-   \brief AL_TBufPoolConfig: Used to configure the AL_TBufPool
+   \brief AL_TAppBufPoolConfig: Used to configure the AL_TAppBufPool
 *****************************************************************************/
-struct AL_TBufPoolConfig
+struct AL_TAppBufPoolConfig
 {
   AL_TAllocator* pAllocator; /*! allocator used to allocate the buffers */
   uint32_t uNumBuf; /*!< number of buffer in the pool */
-  AL_TBufPoolCreateBufCB tCreateBufCB; /*!< abstracted buffer creation function */
+  AL_TAppBufPoolCreateBufCB tCreateBufCB; /*!< abstracted buffer creation function */
 };
 
 /*****************************************************************************
-   \brief AL_TBufPoolAvailableBufCB: Callback to be notified when a buffer is
+   \brief AL_TAppBufPoolAvailableBufCB: Callback to be notified when a buffer is
    returned to the pool
 *****************************************************************************/
-struct AL_TBufPoolAvailableBufCB
+struct AL_TAppBufPoolAvailableBufCB
 {
   void (* func)(void* pUserParam);
   void* userParam;
@@ -75,65 +75,65 @@ enum class AL_EBufMode
 uint32_t AL_GetWaitMode(AL_EBufMode eMode);
 
 /*****************************************************************************
-   \brief AL_TBufPool: Pool of buffer
+   \brief AL_TAppBufPool: Pool of buffer
 *****************************************************************************/
-struct AL_TBufPool
+struct AL_TAppBufPool
 {
   AL_TAllocator* pAllocator; /*! Allocator used to allocate the buffers */
 
   AL_TBuffer** pPool; /*! pool of allocated buffers */
   uint32_t uNumBuf; /*! Number of buffer in the pool */
-  AL_TBufPoolAvailableBufCB tAvailableBufCB; /*! Callback to notify availability of a buffer */
+  AL_TAppBufPoolAvailableBufCB tAvailableBufCB; /*! Callback to notify availability of a buffer */
 
   App_Fifo fifo;
 };
 
 /*****************************************************************************
-   \brief AL_BufPool_Init Initialize the AL_TBufPool
-   \param[in] pBufPool Pointer to an AL_TBufPool
-   \param[in] pConfig Pointer to an AL_TBufPoolConfig object
+   \brief AL_AppBufPool_Init Initialize the AL_TAppBufPool
+   \param[in] pBufPool Pointer to an AL_TAppBufPool
+   \param[in] pConfig Pointer to an AL_TAppBufPoolConfig object
    \return return true on success, false on failure
 *****************************************************************************/
-bool AL_BufPool_Init(AL_TBufPool* pBufPool, AL_TBufPoolConfig* pConfig);
+bool AL_AppBufPool_Init(AL_TAppBufPool* pBufPool, AL_TAppBufPoolConfig* pConfig);
 
 /*****************************************************************************
-   \brief AL_BufPool_Deinit Deiniatilize the AL_TBufPool
-   \param[in] pBufPool Pointer to an AL_TBufPool
+   \brief AL_AppBufPool_Deinit Deiniatilize the AL_TAppBufPool
+   \param[in] pBufPool Pointer to an AL_TAppBufPool
 *****************************************************************************/
-void AL_BufPool_Deinit(AL_TBufPool* pBufPool);
+void AL_AppBufPool_Deinit(AL_TAppBufPool* pBufPool);
 
 /*****************************************************************************
-   \brief AL_BufPool_RegisterAvailableBufCallback registers a callback to be
+   \brief AL_AppBufPool_RegisterAvailableBufCallback registers a callback to be
    notified when a buffer is returned to the pool, and can be pooled again.
    This method is not thread safe, thus must be called before pool usage.
-   \param[in] pBufPool Pointer to an AL_TBufPool
+   \param[in] pBufPool Pointer to an AL_TAppBufPool
    \param[in] pCB Pointer to the callback
 *****************************************************************************/
-void AL_BufPool_RegisterAvailableBufCallback(AL_TBufPool* pBufPool, AL_TBufPoolAvailableBufCB* pCB);
+void AL_AppBufPool_RegisterAvailableBufCallback(AL_TAppBufPool* pBufPool, AL_TAppBufPoolAvailableBufCB* pCB);
 
 /*****************************************************************************
-   \brief AL_BufPool_GetBuffer Get a buffer from the pool
-   \param[in] pBufPool Pointer to an AL_TBufPool
+   \brief AL_AppBufPool_GetBuffer Get a buffer from the pool
+   \param[in] pBufPool Pointer to an AL_TAppBufPool
    \param[in] eMode Get mode. blocking or non blocking
    \return return the buffer or NULL in case of failure in the non blocking case
 *****************************************************************************/
-AL_TBuffer* AL_BufPool_GetBuffer(AL_TBufPool* pBufPool, AL_EBufMode eMode);
+AL_TBuffer* AL_AppBufPool_GetBuffer(AL_TAppBufPool* pBufPool, AL_EBufMode eMode);
 
 /*****************************************************************************
-   \brief AL_BufPool_AddMetaData creates and adds a metadata on all buffers (even if referenced)
-   \param[in] pBufPool Pointer to an AL_TBufPool
+   \brief AL_AppBufPool_AddMetaData creates and adds a metadata on all buffers (even if referenced)
+   \param[in] pBufPool Pointer to an AL_TAppBufPool
    \param[in] pMeta Pointer to a metadata
    \return return true on success, false on failure
 *****************************************************************************/
-bool AL_BufPool_AddMetaData(AL_TBufPool* pBufPool, AL_TMetaData* pMeta);
+bool AL_AppBufPool_AddMetaData(AL_TAppBufPool* pBufPool, AL_TMetaData* pMeta);
 
 /*****************************************************************************
-   \brief AL_BufPool_Decommit Decommit the pool. This deblocks all the blocking
-   call to AL_BufPool_GetBuffer.
-   \param[in] pBufPool Pointer to an AL_TBufPool.
+   \brief AL_AppBufPool_Decommit Decommit the pool. This deblocks all the blocking
+   call to AL_AppBufPool_GetBuffer.
+   \param[in] pBufPool Pointer to an AL_TAppBufPool.
 *****************************************************************************/
-void AL_BufPool_Decommit(AL_TBufPool* pBufPool);
-void AL_BufPool_Commit(AL_TBufPool* pBufPool);
+void AL_AppBufPool_Decommit(AL_TAppBufPool* pBufPool);
+void AL_AppBufPool_Commit(AL_TAppBufPool* pBufPool);
 
 /*****************************************************************************/
 
@@ -157,7 +157,7 @@ struct BaseBufPool
 
   bool Init(AL_TAllocator* pAllocator, uint32_t uNumBuf);
   bool IsInit(void);
-  void RegisterAvailableBufCallback(AL_TBufPoolAvailableBufCB* pCB);
+  void RegisterAvailableBufCallback(AL_TAppBufPoolAvailableBufCB* pCB);
   bool AddMetaData(AL_TMetaData* pMeta);
   AL_TBuffer* GetBuffer(AL_EBufMode mode = AL_EBufMode::AL_BUF_MODE_BLOCK);
   std::shared_ptr<AL_TBuffer> GetSharedBuffer(AL_EBufMode mode = AL_EBufMode::AL_BUF_MODE_BLOCK);
@@ -168,7 +168,7 @@ struct BaseBufPool
 
 private:
   bool isInit = false;
-  AL_TBufPool m_pool {};
+  AL_TAppBufPool m_pool {};
   static AL_TBuffer* sCreateBuf(void* pUserParam, AL_TAllocator* pAllocator, PFN_RefCount_CallBack pRefCntCallBack);
 };
 

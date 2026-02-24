@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /******************************************************************************
@@ -20,12 +20,12 @@
 #include "lib_parsing/I_PictMngr.h"
 #include "lib_parsing/Concealment.h"
 #include "lib_parsing/Aup.h"
-#include "lib_parsing/Av1FrameContext.h"
 #include "lib_common/BufferSeiMeta.h"
 #include "lib_decode/I_DecScheduler.h"
 #include "lib_decode/DecoderFrameCtx.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/SearchDecUnit.h"
+#include <stdint.h>
 
 typedef enum
 {
@@ -52,15 +52,17 @@ typedef struct
   AL_ENut eos;
   AL_ENut eob;
 }AL_NonVclNuts;
+
 typedef struct
 {
   void (* parseDps)(AL_TAup*, AL_TRbspParser*);
-  AL_PARSE_RESULT (* parseVps)(AL_TAup*, AL_TRbspParser*);
-  AL_PARSE_RESULT (* parseSps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
-  AL_PARSE_RESULT (* parsePps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
-  AL_PARSE_RESULT (* parseAps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
-  AL_PARSE_RESULT (* parsePh)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
+  AL_EParseResult (* parseVps)(AL_TAup*, AL_TRbspParser*);
+  AL_EParseResult (* parseSps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
+  AL_EParseResult (* parsePps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
+  AL_EParseResult (* parseAps)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
+  AL_EParseResult (* parsePh)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
   bool (* parseSei)(AL_TAup*, AL_TRbspParser*, bool, AL_CB_ParsedSei*, AL_TSeiMetaData* pMeta);
+  AL_EParseResult (* parseOtherNal)(AL_TAup*, AL_TRbspParser*, AL_ENut); // try to parse unusual/codec-specific NAL
   // return false when there is nothing to process
   bool (* decodeSliceData)(AL_TAup*, AL_TDecCtx*, AL_ENut, bool, int32_t*);
   bool (* isSliceData)(AL_ENut nut);
@@ -85,11 +87,13 @@ typedef struct
 *****************************************************************************/
 struct AL_TDecCtx
 {
+  uint8_t uMaxLayerId;
   AL_TFeeder* Feeder;
   AL_EDecInputMode eInputMode;
 
   TBuffer BufNoAE;            // Deanti-Emulated buffer used for high level syntax parsing
-  AL_TCircBuffer Stream;             // Input stream buffer
+  AL_TCircBuffer StreamPrivate;             // Input stream buffer please only use pStream has accessor
+  AL_TCircBuffer* pStream;             // Input stream buffer
   AL_TCircBuffer NalStream;
   AL_TBuffer* pInputBuffer;     // keep a reference to input buffer and its meta data
 
@@ -110,11 +114,11 @@ struct AL_TDecCtx
 
   // Start code members
   TBuffer BufSCD;             // Holds the Start Code Detector Table results
-  AL_TScStatus ScdStatus;
+  AL_TStartCodeStatus ScdStatus;
   TBuffer SCTable;
   AL_TDecUnitSearchCtx SearchCtx;
 
-  AL_TDecBufferAddrs BufAddrs;
+  AL_TDecBuffers PictBuffers;
   // decoder pool buffer
   TBuffer PoolSclLst[AL_DEC_SW_MAX_STACK_SIZE];      // Scaling List pool buffer
   TBuffer PoolCompData[AL_DEC_SW_MAX_STACK_SIZE];    // compressed MVDs + header + residuals pool buffer
@@ -157,8 +161,8 @@ struct AL_TDecCtx
     uint8_t uNoRaslOutputFlag;
     uint8_t uNoOutputBeforeRecoveryFlag;
   };
-  uint8_t uFrameIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
-  uint8_t uMvIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
+  AL_TIndex tFrameIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
+  AL_TIndex tMvIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
   uint8_t uNumRef[AL_DEC_SW_MAX_STACK_SIZE];
 
   // CurrentFrame context

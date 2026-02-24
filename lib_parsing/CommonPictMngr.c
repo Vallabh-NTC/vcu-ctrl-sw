@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "CommonPictMngr.h"
@@ -29,7 +29,7 @@ void ExtractReferenceAddresses(uint8_t uIdx, AL_TPicFormat const* pPicFormat, AL
 void AL_CommonPictMngr_ExtractRefBuffersAddresses(AL_ECodec eCodec, AL_TPicFormat const* pPicFormat, AL_TPosition tPosOffset, uint8_t uMaxRef, AL_TPictMngrRefBuffers const* pPictMngrRefBuffers, AL_TDecBuffers* pPicBuffers)
 {
   TRefListOffsets tRefListOffsets;
-  AL_GetRefListOffsets(&tRefListOffsets, eCodec, pPicFormat, uMaxRef, sizeof(AL_PADDR));
+  AL_GetRefListOffsets(&tRefListOffsets, eCodec, pPicFormat->eChromaMode, uMaxRef, sizeof(AL_PADDR));
 
   AL_VADDR pListRefAddr = pPicBuffers->tListRef.tMD.pVirtualAddr;
 

@@ -63,9 +63,9 @@ $(BIN)/%.so:
 	@ln -fs "$(@:$(BIN)/%=%).$(VERSION)" $@.$(MAJOR)
 	@ln -fs "$(@:$(BIN)/%=%).$(VERSION)" $@
 
-$(BIN)/include/config.h:
+$(BIN)/include/config.h: include/config.h
 	@mkdir -p $(dir $@)
-	@cp include/config.h $(dir $@)
+	@cp $< $(dir $@)
 
 $(BIN)/%.exe: $(BIN)/include/config.h
 	@mkdir -p $(dir $@)

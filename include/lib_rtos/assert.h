@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -33,21 +33,6 @@
 
 #else
 
-#if __MICROBLAZE__
-
-#include "McuSys.h"
-#include "McuDebug.h"
-
-#define Rtos_AssertWithMessage(bCondition, sMsg, sFile, iLine) \
-  do \
-  { \
-    (void)sFile; \
-    (void)iLine; \
-    Mcu_Debug_Assert(bCondition, sMsg); \
-  } while(false)
-
-#else
-
 /****************************************************************************/
 /*** N o O p e r a t i n g S y s t e m ***/
 /****************************************************************************/
@@ -55,22 +40,21 @@
 void Rtos_AssertWithMessage(bool bCondition, char const* sMsg, char const* sFile, int32_t iLine);
 
 #endif
-#endif
 
-#else // !defined(NDEBUG)
+#else
 
 #if __GNUC__ > 12
 #define ASSUME(cond) __attribute__((assume(cond)))
 #elif __GNUC__ > 4 && __GNUC_MINOR__ > 5
-
-do
-{
-  if(!(cond))
-    __builtin_unreachable();
-}
-while(0)
+#define ASSUME(cond) \
+  do \
+  { \
+    if(!(cond)) \
+      __builtin_unreachable(); \
+  } \
+  while(false)
 #else
-#define ASSUME(cond) (void)(cond)
+#define ASSUME(cond) ((void)(cond))
 #endif
 
 #define Rtos_AssertWithMessage(bCondition, sMsg, sFile, iLine) \
@@ -83,6 +67,6 @@ while(0)
   } while(false)
 
 #define Rtos_Assert(bCondition) \
-  (void)(bCondition);
+  (void)(bCondition)
 
 #endif // !defined(NDEBUG)

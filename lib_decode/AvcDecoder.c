@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "FrameParam.h"
@@ -172,8 +172,9 @@ static AL_ERR isSPSCompatibleWithInitialStreamSettings(AL_TDecCtx const* pCtx, A
 }
 
 /******************************************************************************/
-static void extractStreamSettings(AL_TAvcSps const* pSPS, AL_TStreamSettings* pStreamSettings, bool bHasFields)
+static void extractStreamSettings(AL_TDecCtx* pCtx, AL_TAvcSps const* pSPS, AL_TStreamSettings* pStreamSettings, bool bHasFields)
 {
+  (void)pCtx;
   uint32_t uFlags = (pSPS->constraint_set0_flag |
                      (pSPS->constraint_set1_flag << 1) |
                      (pSPS->constraint_set2_flag << 2) |
@@ -232,7 +233,9 @@ static bool allocateBuffers(AL_TDecCtx* pCtx, AL_TAvcSps const* pSPS, bool bHasF
   tPictMngrParam.bForceDisplay = pCtx->pChanParam->bCallDecodeCallbackAtStart;
   tPictMngrParam.tOutputPosition = pCtx->tOutputPosition;
 
-  AL_TDpbInitParam tDpbParams = { tPictMngrParam.uNumRef, pCtx->eDpbMode };
+  AL_TDpbInitParam tDpbParams;
+  tDpbParams.uNumRef = tPictMngrParam.uNumRef;
+  tDpbParams.eMode = pCtx->eDpbMode;
   AL_IReferenceManager* pRefMngr = AL_Dpb_Create(&tDpbParams);
 
   if(!AL_PictMngr_BasicInit(&pCtx->PictMngr, pRefMngr, &tPictMngrParam, pCtx->pAllocator))
@@ -316,7 +319,7 @@ static bool initSlice(AL_TDecCtx* pCtx, AL_TAvcSliceHdr* pSlice)
 
     if(!pCtx->bAreBuffersAllocated)
     {
-      extractStreamSettings(pSlice->pSPS, &pCtx->tCurrentStreamSettings, pSlice->field_pic_flag);
+      extractStreamSettings(pCtx, pSlice->pSPS, &pCtx->tCurrentStreamSettings, pSlice->field_pic_flag);
       pCtx->tInitialStreamSettings = pCtx->tCurrentStreamSettings;
     }
 
@@ -345,7 +348,7 @@ static bool initSlice(AL_TDecCtx* pCtx, AL_TAvcSliceHdr* pSlice)
 }
 
 /*****************************************************************************/
-static void copyScalingList(AL_TAvcPps* pPPS, AL_TScl* pSCL)
+static void copyScalingList(AL_TAvcPps* pPPS, AL_TScalingList* pSCL)
 {
   Rtos_Memcpy((*pSCL)[0].t4x4Y,
               !pPPS->UseDefaultScalingMatrix4x4Flag[0] ? pPPS->ScalingList4x4[0] :
@@ -374,7 +377,7 @@ static void copyScalingList(AL_TAvcPps* pPPS, AL_TScl* pSCL)
 }
 
 /******************************************************************************/
-static void processScalingList(AL_TAvcAup* pAUP, AL_TAvcSliceHdr* pSlice, AL_TScl* pScl)
+static void processScalingList(AL_TAvcAup* pAUP, AL_TAvcSliceHdr* pSlice, AL_TScalingList* pScl)
 {
   int32_t ppsid = pSlice->pic_parameter_set_id;
 
@@ -601,7 +604,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
 
   // Slice header deanti-emulation
   AL_TRbspParser rp;
-  AL_TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = pCtx->pStream;
   InitRbspParser(pBufStream, pCtx->BufNoAE.tMD.pVirtualAddr, pCtx->BufNoAE.tMD.uSize, true, &rp);
 
   // Parse Slice Header
@@ -661,7 +664,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
     if(isValid)
     {
       spsSettings.bDecodeIntraOnly = pCtx->tCurrentStreamSettings.bDecodeIntraOnly || pCtx->bIntraOnlyProfile;
-      extractStreamSettings(pSPS, &spsSettings, pSlice->field_pic_flag);
+      extractStreamSettings(pCtx, pSPS, &spsSettings, pSlice->field_pic_flag);
       // get value from pre alloc
       spsSettings.iMaxRef = pCtx->tCurrentStreamSettings.iMaxRef;
     }
@@ -722,7 +725,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
   if(isValid && pSlice->slice_type != AL_SLICE_I)
     AL_SET_DEC_OPT(pPicParam, IntraOnly, 0);
 
-  pPicBuffers->tStream.tMD = pCtx->Stream.tMD;
+  pPicBuffers->tStream.tMD = pCtx->pStream->tMD;
 
   // Compute Current POC
   if(isValid && (!pSlice->first_mb_in_slice || !bSliceBelongsToSameFrame))
@@ -751,7 +754,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
   if(bLastSlice && !bIsLastAUNal)
     isValid = false;
 
-  AL_TScl ScalingList = { 0 };
+  AL_TScalingList ScalingList = { 0 };
 
   if(bIsLastAUNal && !pFrmCtx->bIsIntraOnly)
   {
@@ -791,7 +794,6 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
     }
     else
     {
-      AL_AVC_FillSlicePicIdRegister(pCtx, pSliceParam);
       pConceal->bValidFrame = true;
       AL_SetConcealParameters(pCtx, pSliceParam);
     }
@@ -861,17 +863,17 @@ static bool isSliceData(AL_ENut nut)
 }
 
 /*****************************************************************************/
-static AL_PARSE_RESULT parsePPSandUpdateConcealment(AL_TAup* IAup, AL_TRbspParser* rp, AL_TDecCtx* pCtx)
+static AL_EParseResult parsePPSandUpdateConcealment(AL_TAup* IAup, AL_TRbspParser* rp, AL_TDecCtx* pCtx)
 {
   uint16_t PpsId;
-  AL_PARSE_RESULT result = AL_AVC_ParsePPS(IAup, rp, &PpsId);
+  AL_EParseResult result = AL_AVC_ParsePPS(IAup, rp, &PpsId);
 
   if(PpsId >= AL_AVC_MAX_PPS)
-    return AL_UNSUPPORTED;
+    return AL_PARSE_UNSUPPORTED;
 
   AL_TAvcAup* aup = &IAup->avcAup;
 
-  aup->pPPS[PpsId].bConceal = (result != AL_OK);
+  aup->pPPS[PpsId].bConceal = (result != AL_PARSE_OK);
 
   if(!aup->pPPS[PpsId].bConceal)
   {
@@ -895,21 +897,21 @@ static bool isActiveSPSChanging(AL_TAvcSps* pNewSPS, AL_TAvcSps* pActiveSPS)
 }
 
 /*****************************************************************************/
-static AL_PARSE_RESULT parseAndApplySPS(AL_TAup* pIAup, AL_TRbspParser* pRP, AL_TDecCtx* pCtx)
+static AL_EParseResult parseAndApplySPS(AL_TAup* pIAup, AL_TRbspParser* pRP, AL_TDecCtx* pCtx)
 {
   AL_TAvcSps tNewSPS;
-  AL_PARSE_RESULT eParseResult = AL_AVC_ParseSPS(pRP, &tNewSPS);
+  AL_EParseResult eParseResult = AL_AVC_ParseSPS(pRP, &tNewSPS);
 
-  if(eParseResult != AL_BAD_ID)
+  if(eParseResult != AL_PARSE_BAD_ID)
   {
-    if(eParseResult == AL_OK)
+    if(eParseResult == AL_PARSE_OK)
     {
       if(AL_Default_Decoder_HasOngoingFrame(pCtx) && isActiveSPSChanging(&tNewSPS, pIAup->avcAup.pActiveSPS))
       {
         // An active SPS should not be modified unless it is the end of the CVS (spec I.7.4.1.2).
         // So we consider we received the full frame.
         finishPreviousFrame(pCtx);
-        eParseResult = AL_LAUNCHED_OK;
+        eParseResult = AL_PARSER_LAUNCHED_OK;
       }
       pIAup->avcAup.pSPS[tNewSPS.seq_parameter_set_id] = tNewSPS;
     }
@@ -946,7 +948,30 @@ static bool isNutError(AL_ENut nut)
 {
   if(nut >= AL_AVC_NUT_ERR)
     return true;
-  return false;
+  switch(nut)
+  {
+  case AL_AVC_NUT_VCL_NON_IDR:
+  case AL_AVC_NUT_VCL_IDR:
+  case AL_AVC_NUT_PREFIX_SEI:
+  case AL_AVC_NUT_SPS:
+  case AL_AVC_NUT_PPS:
+  case AL_AVC_NUT_AUD:
+  case AL_AVC_NUT_EOS:
+  case AL_AVC_NUT_EOB:
+  case AL_AVC_NUT_FD:
+    return false;
+  case AL_AVC_NUT_UNSPEC_24:
+  case AL_AVC_NUT_UNSPEC_25:
+  case AL_AVC_NUT_UNSPEC_26:
+  case AL_AVC_NUT_UNSPEC_27:
+  case AL_AVC_NUT_UNSPEC_28:
+  case AL_AVC_NUT_UNSPEC_29:
+  case AL_AVC_NUT_UNSPEC_30:
+  case AL_AVC_NUT_UNSPEC_31:
+    return false;
+  default:  /* filter out reserved, SVC and MVC types*/
+    return true;
+  }
 }
 
 /*****************************************************************************/
@@ -988,6 +1013,7 @@ void AL_AVC_InitParser(AL_NalParser* pParser)
   pParser->parseAps = NULL;
   pParser->parsePh = NULL;
   pParser->parseSei = AL_AVC_ParseSEI;
+  pParser->parseOtherNal = AL_AVC_ParseNal;
   pParser->decodeSliceData = decodeSliceData;
   pParser->isSliceData = isSliceData;
   pParser->finishPendingRequest = finishPreviousFrame;
@@ -1006,6 +1032,7 @@ void AL_AVC_InitAUP(AL_TAvcAup* pAUP)
     pAUP->pSPS[i].bConceal = true;
 
   pAUP->ePictureType = AL_SLICE_I;
+  pAUP->uCurTemporalID = 0;
   pAUP->pActiveSPS = NULL;
 }
 

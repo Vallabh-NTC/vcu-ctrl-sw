@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2026 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
@@ -10,14 +10,14 @@ static bool destroy(AL_TMetaData* pMeta)
   return true;
 }
 
-AL_TCircMetaData* AL_CircMetaData_Clone(AL_TCircMetaData* pMeta)
+AL_TCircMetaData* AL_CircMetaData_Clone(AL_TCircMetaData const* pMeta)
 {
   return AL_CircMetaData_Create(pMeta->iOffset, pMeta->iAvailSize, pMeta->bLastBuffer);
 }
 
-static AL_TMetaData* clone(AL_TMetaData* pMeta)
+static AL_TMetaData* clone(AL_TMetaData const* pMeta)
 {
-  return (AL_TMetaData*)AL_CircMetaData_Clone((AL_TCircMetaData*)pMeta);
+  return (AL_TMetaData*)AL_CircMetaData_Clone((AL_TCircMetaData const*)pMeta);
 }
 
 AL_TCircMetaData* AL_CircMetaData_Create(int32_t iOffset, int32_t iAvailSize, bool bLastBuffer)
