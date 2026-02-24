@@ -676,6 +676,10 @@ static bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, uint32
   {
     pCtx->bIsFirstPicture = true;
   }
+  else if(nut == nuts.fd)
+  {
+    (void)nut;
+  }
   else if(parser.parseOtherNal)
   {
     AL_TRbspParser rp = getParserOnNonVclNalInternalBuf(pCtx);
