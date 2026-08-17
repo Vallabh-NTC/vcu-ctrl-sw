@@ -767,6 +767,22 @@ static bool decodeSliceCheckItBelongs(AL_TDecCtx* pCtx, AL_ENut eNUT, AL_THevcSl
   return bSliceBelongsToSameFrame;
 }
 
+static bool IsSliceSegAddrValid(AL_THevcSliceHdr const* pSlice)
+{
+  int iTileCount = (pSlice->pPPS->num_tile_columns_minus1 + 1) * (pSlice->pPPS->num_tile_rows_minus1 + 1);
+
+  for(int i = 0; i < iTileCount; i++)
+  {
+    if(pSlice->pPPS->TileTopology[i] == (uint32_t)pSlice->slice_segment_address)
+    {
+      return true;
+    }
+  }
+
+  Rtos_Log(AL_LOG_ERROR, "decodeSliceData: Invalid slice_segment_address=%d - Does not match TileTopology\n", pSlice->slice_segment_address);
+  return false;
+}
+
 /*****************************************************************************/
 static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool bIsLastAUNal, int32_t* iNumSlice)
 {
@@ -801,8 +817,6 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
   AL_TRbspParser rp;
   InitRbspParser(pBufStream, pCtx->BufNoAE.tMD.pVirtualAddr, pCtx->BufNoAE.tMD.uSize, true, &rp);
 
-  AL_TDecPicParam* pPicParam = &pCtx->tPoolPicParams[pCtx->uToggle];
-
   // Parse Slice Header
   uint8_t uToggleID = (~pCtx->uCurID) & 0x01;
   AL_THevcSliceHdr* pSlice = &pCtx->HevcSliceHdr[uToggleID];
@@ -822,6 +836,9 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
     pCtx->pChanParam->uNumTileColumns = pSlice->pPPS->num_tile_columns_minus1 + 1;
   else
     pCtx->pChanParam->uNumTileColumns = 1;
+
+  if(isSliceHdrValid && (pSlice->pPPS->tiles_enabled_flag && pSlice->num_entry_point_offsets))
+    isSliceHdrValid = IsSliceSegAddrValid(pSlice);
 
   bool isValid = isSliceHdrValid;
 
@@ -852,6 +869,8 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
       return true;
     }
   }
+
+  AL_TDecPicParam* pPicParam = &pCtx->tPoolPicParams[pCtx->uToggle];
 
   if(isValid && pCtx->bAreBuffersAllocated)
   {
