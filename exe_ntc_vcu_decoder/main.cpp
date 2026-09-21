@@ -59,6 +59,7 @@ extern "C" {
 #include "CodecUtils.hpp"
 #include "InputLoader.hpp"
 #include "IpDevice.hpp"
+#include "PreloadedFileSource.hpp"
 #include "SinkYuvCrc.hpp"
 #include "HDRWriter.hpp"
 
@@ -1443,6 +1444,14 @@ void SafeRunChannelMain(WorkerConfig& w)
   // ------------------
   CheckAndAdjustChannelConfiguration(config);
 
+  if(config.tDecSettings.eInputMode != AL_DEC_SPLIT_INPUT)
+    throw runtime_error(
+      "NTC_VcuDecoder requires split-input mode");
+
+  if(!config.sSplitSizesFile.empty())
+    throw runtime_error(
+      "NTC_VcuDecoder does not support an external split-sizes file");
+
   // Ugly goto that need to be revamp in the upper layer
   // ---------------------------------------------------
   findDecDev:
@@ -1481,12 +1490,9 @@ void SafeRunChannelMain(WorkerConfig& w)
   // Parametrization of the lcevc decoder for traces
   // -----------------------------------------------
 
-  // Configure the stream buffer pool
-  // --------------------------------
-  // Note : Must be before scopeExit so that AL_Decoder_Destroy can be called
-  // before the BufPool destroyer. Can it be done differently so that it is not dependant of this order ?
-  BufPool tInputPool;
-  ConfigureInputPool(config, pAllocator, tInputPool);
+  // Keep this source alive until after the decoder has been destroyed.
+  // The decoder can retain references to the encoded AL_TBuffer objects.
+  unique_ptr<ntc::PreloadedFileSource> pEncodedSource;
 
   // Insure destroying is done even after throwing
   // ---------------------------------------------
@@ -1508,6 +1514,21 @@ void SafeRunChannelMain(WorkerConfig& w)
         throw codec_error(eErr);
   }
 
+  // Initialization boundary: file access, access-unit splitting and payload
+  // copies into VCU-accessible buffers happen before timing starts.
+  pEncodedSource.reset(
+    new ntc::PreloadedFileSource(
+      pAllocator,
+      config.sIn,
+      config.zInputBufferSize,
+      config.tDecSettings.eCodec,
+      config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT));
+
+  cout << "[NTC_PRELOAD]"
+       << " access_units=" << pEncodedSource->GetAccessUnitCount()
+       << " payload_bytes=" << pEncodedSource->GetPayloadBytes()
+       << endl;
+
   // Start feeding the decoder
   // -------------------------
   auto const uBegin = GetPerfTime();
@@ -1515,28 +1536,36 @@ void SafeRunChannelMain(WorkerConfig& w)
 
   for(int32_t iLoop = 0; iLoop < config.iLoop; ++iLoop)
   {
-    tInputPool.Commit();
-
     if(iLoop > 0)
       LogVerbose(CC_GREY, "  Looping\n");
 
-    // Setup the reader of bitstream in the file.
-    // It will send bitstream chunk to the decoder
-    AsyncFileInput producer;
-    AL_ECodec eCodec = config.tDecSettings.eCodec;
+    pEncodedSource->Reset();
 
-    producer.Init(tDecCtx.GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
+    ntc::EncodedAccessUnit tUnit {};
 
-    producer.ConfigureStreamInput(config.sIn, config.sSplitSizesFile, config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT, eCodec, config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT);
-    producer.Start();
+    while(pEncodedSource->Next(tUnit))
+    {
+      if(!AL_Decoder_PushStreamBuffer(
+           tDecCtx.GetBaseDecoderHandle(),
+           tUnit.pBuffer,
+           tUnit.zPayloadSize,
+           tUnit.uFlags))
+      {
+        throw runtime_error(
+          "Failed to submit a preloaded access unit to the decoder");
+      }
+    }
+
+    AL_Decoder_Flush(tDecCtx.GetBaseDecoderHandle());
 
     auto const maxWait = config.iTimeoutInSeconds * 1000;
     auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
 
     if(!tDecCtx.WaitExit(timeout))
+    {
       timeoutOccurred = true;
-
-    tInputPool.Decommit();
+      break;
+    }
   }
 
   auto const uEnd = GetPerfTime();

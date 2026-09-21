@@ -2,6 +2,7 @@ THIS_EXE_NTC_VCU_DECODER := $(call get-my-dir)
 
 EXE_NTC_VCU_DECODER_SRC := \
   $(THIS_EXE_NTC_VCU_DECODER)/main.cpp \
+  $(THIS_EXE_NTC_VCU_DECODER)/PreloadedFileSource.cpp \
   exe_decoder/SinkYuvCrc.cpp \
   exe_decoder/CmdParser.cpp \
   exe_decoder/IpDevice.cpp \
@@ -15,8 +16,9 @@ endif
 EXE_NTC_VCU_DECODER_OBJ := \
   $(EXE_NTC_VCU_DECODER_SRC:%=$(BIN)/%.o)
 
-# The custom main.cpp reuses headers located in exe_decoder/.
-$(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/main.cpp.o: CFLAGS += -Iexe_decoder
+$(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/main.cpp.o \
+$(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/PreloadedFileSource.cpp.o: \
+  CFLAGS += -Iexe_decoder
 
 $(BIN)/NTC_VcuDecoder.exe: \
   $(EXE_NTC_VCU_DECODER_OBJ) \
