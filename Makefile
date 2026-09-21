@@ -161,7 +161,7 @@ ifneq ($(ENABLE_EXE_DECODER),0)
   -include lib_scheduler_dec/project.mk
   -include lib_decode/project.mk
   -include exe_decoder/project.mk
-  -include exe_ntc_preloaded_decoder/project.mk
+  -include exe_ntc_vcu_decoder/project.mk
 endif
 
 
