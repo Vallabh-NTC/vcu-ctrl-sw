@@ -2,6 +2,7 @@ THIS_EXE_NTC_VCU_DECODER := $(call get-my-dir)
 
 EXE_NTC_VCU_DECODER_SRC := \
   $(THIS_EXE_NTC_VCU_DECODER)/main.cpp \
+  $(THIS_EXE_NTC_VCU_DECODER)/VcuDecodedBufferAdapter.cpp \
   $(THIS_EXE_NTC_VCU_DECODER)/PreloadedFileSource.cpp \
   exe_decoder/SinkYuvCrc.cpp \
   exe_decoder/CmdParser.cpp \
@@ -17,6 +18,7 @@ EXE_NTC_VCU_DECODER_OBJ := \
   $(EXE_NTC_VCU_DECODER_SRC:%=$(BIN)/%.o)
 
 $(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/main.cpp.o \
+$(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/VcuDecodedBufferAdapter.cpp.o \
 $(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/PreloadedFileSource.cpp.o: \
   CFLAGS += -Iexe_decoder
 
