@@ -63,6 +63,10 @@ extern "C" {
 #include "SinkYuvCrc.hpp"
 #include "HDRWriter.hpp"
 
+#if defined(NTC_ENABLE_PRIVACY_CALLBACK)
+#include "VcuPrivacyCallbackIntegration.hpp"
+#endif
+
 using namespace std;
 
 /******************************************************************************/
@@ -1056,9 +1060,39 @@ void DecoderContext::ReceiveFrameToDisplayFrom(DeviceType eDevice, AL_TBuffer* p
     AL_Buffer_InvalidateMemory(pFrame);
 
     auto err = TreatError(eDevice, pFrame, pInfo);
+    bool bPrivacyOutputAllowed = true;
+
+#if defined(NTC_ENABLE_PRIVACY_CALLBACK)
+    ntc_vcu::PrivacyCallbackDecision privacyDecision {
+      ntc_vcu::DecodedBufferAdapterStatus::kNullBuffer,
+      NTC_PRIVACY_CALLBACK_INVALID_ARGUMENT,
+      false,
+    };
+
+    if(!AL_IS_ERROR_CODE(err))
+    {
+      privacyDecision = ntc_vcu::ApplyFullFramePrivacyValidation(pFrame);
+      bPrivacyOutputAllowed = privacyDecision.outputAllowed;
+
+      if(bPrivacyOutputAllowed)
+        AL_Buffer_FlushMemory(pFrame);
+    }
+#endif
 
     if(AL_IS_ERROR_CODE(err))
       bLastFrame = true;
+    else if(!bPrivacyOutputAllowed)
+    {
+      bool const bIsBaseDecoder = eDevice == DEVICE_BASE_DECODER;
+      bool const bIsFrameMainDisplay =
+        pInfo->eOutputID == AL_OUTPUT_MAIN ||
+        pInfo->eOutputID == AL_OUTPUT_POSTPROC;
+
+      if(bIsBaseDecoder && bIsFrameMainDisplay &&
+         CanSendBackBufferToDecoder() &&
+         !AL_Decoder_PutDisplayPicture(GetDecoderHandle(eDevice), pFrame))
+        throw runtime_error("bAdded must be true");
+    }
     else
     {
       {
