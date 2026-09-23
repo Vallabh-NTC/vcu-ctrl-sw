@@ -2,6 +2,10 @@
 
 #include "VcuPrivacyCallbackIntegration.hpp"
 
+#if defined(NTC_ENABLE_PRIVACY_GDB_EVIDENCE)
+#include "vcu_privacy_gdb_evidence.h"
+#endif
+
 namespace ntc_vcu {
 namespace {
 
@@ -45,8 +49,13 @@ PrivacyCallbackDecision ApplyFullFramePrivacyValidation(
     static_cast<int32_t>(view.height),
   };
 
+#if defined(NTC_ENABLE_PRIVACY_GDB_EVIDENCE)
+  NtcPrivacyCallbackResult const callbackResult =
+    NtcPrivacyProcessNv12FrameWithEvidence(&frame, &rectangle, 1U);
+#else
   NtcPrivacyCallbackResult const callbackResult =
     NtcPrivacyProcessNv12Frame(&frame, &rectangle, 1U);
+#endif
 
   return PrivacyCallbackDecision {
     adapterStatus,
