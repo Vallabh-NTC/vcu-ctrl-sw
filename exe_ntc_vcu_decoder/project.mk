@@ -15,6 +15,29 @@ ifneq ($(ENABLE_DEC_SW_HIGH_DYNAMIC_RANGE),0)
 endif
 
 NTC_PRIVACY_CALLBACK_DEPENDENCIES :=
+NTC_FACE_PLATE_DEPENDENCIES :=
+
+ifeq ($(NTC_ENABLE_FACE_PLATE_RUNTIME),1)
+  ifeq ($(NTC_ENABLE_PRIVACY_CALLBACK),1)
+    $(error Select either NTC_ENABLE_FACE_PLATE_RUNTIME or NTC_ENABLE_PRIVACY_CALLBACK)
+  endif
+  ifeq ($(strip $(NTC_FACE_PLATE_INCLUDE_DIRS)),)
+    $(error NTC_FACE_PLATE_INCLUDE_DIRS is required)
+  endif
+  ifeq ($(strip $(NTC_FACE_PLATE_LIBS)),)
+    $(error NTC_FACE_PLATE_LIBS is required)
+  endif
+
+  EXE_NTC_VCU_DECODER_SRC += \
+    $(THIS_EXE_NTC_VCU_DECODER)/VcuFacePlateRuntime.cpp
+  NTC_FACE_PLATE_DEPENDENCIES := $(NTC_FACE_PLATE_LIBS)
+
+  $(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/main.cpp.o \
+  $(BIN)/$(THIS_EXE_NTC_VCU_DECODER)/VcuFacePlateRuntime.cpp.o: \
+    CFLAGS += \
+      -DNTC_ENABLE_FACE_PLATE_RUNTIME=1 \
+      $(addprefix -I,$(NTC_FACE_PLATE_INCLUDE_DIRS))
+endif
 
 ifeq ($(NTC_ENABLE_PRIVACY_CALLBACK),1)
   ifeq ($(strip $(NTC_PRIVACY_CALLBACK_INCLUDE_DIR)),)
@@ -59,7 +82,8 @@ $(BIN)/NTC_VcuDecoder.exe: \
   $(LIB_REFFBC_A) \
   $(LIB_REF_LCEVC_DEC_A) \
   $(LIB_LCEVC_DECODE_A) \
-  $(NTC_PRIVACY_CALLBACK_DEPENDENCIES)
+  $(NTC_PRIVACY_CALLBACK_DEPENDENCIES) \
+  $(NTC_FACE_PLATE_DEPENDENCIES)
 
 NTC_VcuDecoder.exe: $(BIN)/NTC_VcuDecoder.exe
 TARGETS += NTC_VcuDecoder.exe

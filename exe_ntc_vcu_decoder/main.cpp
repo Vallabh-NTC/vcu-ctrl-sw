@@ -67,6 +67,10 @@ extern "C" {
 #include "VcuPrivacyCallbackIntegration.hpp"
 #endif
 
+#if defined(NTC_ENABLE_FACE_PLATE_RUNTIME)
+#include "VcuFacePlateRuntime.hpp"
+#endif
+
 using namespace std;
 
 /******************************************************************************/
@@ -580,6 +584,9 @@ private:
   EDecErrorLevel eExitCondition = DEC_ERROR;
   AL_EVENT hExitMain = nullptr;
   mutex hDisplayMutex;
+#if defined(NTC_ENABLE_FACE_PLATE_RUNTIME)
+  ntc_vcu::FacePlateRuntime facePlateRuntime;
+#endif
 };
 
 /******************************************************************************/
@@ -605,6 +612,11 @@ DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
   eExitCondition = config.eExitCondition;
   hExitMain = Rtos_CreateEvent(false);
   bSetRecPoolInMultiChunk = config.bMultiChunk;
+#if defined(NTC_ENABLE_FACE_PLATE_RUNTIME)
+  char const* const weightsDirectory = std::getenv("NTC_FACE_PLATE_WEIGHTS_DIR");
+  if(weightsDirectory == nullptr || !facePlateRuntime.Initialize(weightsDirectory))
+    throw runtime_error("Cannot initialize face+plate weights; set NTC_FACE_PLATE_WEIGHTS_DIR");
+#endif
 }
 
 /******************************************************************************/
@@ -1062,7 +1074,21 @@ void DecoderContext::ReceiveFrameToDisplayFrom(DeviceType eDevice, AL_TBuffer* p
     auto err = TreatError(eDevice, pFrame, pInfo);
     bool bPrivacyOutputAllowed = true;
 
-#if defined(NTC_ENABLE_PRIVACY_CALLBACK)
+#if defined(NTC_ENABLE_FACE_PLATE_RUNTIME)
+    if(!AL_IS_ERROR_CODE(err))
+    {
+      auto const& crop = pInfo->tCrop;
+      bPrivacyOutputAllowed = facePlateRuntime.Process(
+        pFrame,
+        crop.bCropping ? crop.uCropOffsetLeft : 0U,
+        crop.bCropping ? crop.uCropOffsetTop : 0U,
+        crop.bCropping ? crop.uCropOffsetRight : 0U,
+        crop.bCropping ? crop.uCropOffsetBottom : 0U);
+      // A failed later ROI may leave earlier ROI writes in CPU cache. Flush
+      // before either display or decoder reuse; denied frames are not output.
+      AL_Buffer_FlushMemory(pFrame);
+    }
+#elif defined(NTC_ENABLE_PRIVACY_CALLBACK)
     ntc_vcu::PrivacyCallbackDecision privacyDecision {
       ntc_vcu::DecodedBufferAdapterStatus::kNullBuffer,
       NTC_PRIVACY_CALLBACK_INVALID_ARGUMENT,
